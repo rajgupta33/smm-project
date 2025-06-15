@@ -25,7 +25,7 @@ app.get("/check",(req,res)=>{
 
 // Login route
 const createUser=require('./routes/Admin/createUser');
-app.use("/createUser", validate ,createUser);
+app.use("/createUser", validate, createUser);
 
 // Create user route
 const login=require('./routes/common/login');
@@ -33,28 +33,44 @@ app.use('/login',login);
 
 //for get all services
 const getServices=require('./routes/Admin/getServices');
-app.use('/getServices',getServices);
+app.use('/getServices', validate, getServices);
 
 //for place a order
 const placeOrder=require('./routes/User/placeOrder');
-app.use("/place-order",placeOrder)
+app.use("/placeOrder", validate, placeOrder)
 
 const userService=require('./routes/User/getUserServices');
-app.use("/userServices",validate,userService);
+app.use("/userServices", validate, userService);
 
 const me=require('./routes/common/me');
-app.use('auth/me',me);
+app.use('auth/me', validate, me);
 
-// Update password route
-// app.put('/users/:username/password', (req, res) => {
-//     const { username } = req.params;
-//     const { newPassword } = req.body;
-//     if (!users[username]) {
-//         return res.status(404).json({ message: 'User not found' });
-//     }
-//     users[username].password = newPassword;
-//     res.json({ message: 'Password updated' });
-// });
+const getOrders = require('./routes/User/getOrders')
+app.use('/getOrders', validate, getOrders);
+
+const getTransactions =require('./routes/User/getTransactions');
+app.use('/getTransactions', validate, getTransactions);
+
+const createService = require('./routes/Admin/createService');
+app.use('/createService', validate , createService);
+
+const updateService = require('./routes/Admin/updateService');
+app.use('/updateService', validate, updateService);
+
+const getCustomServices = require('./routes/Admin/getCustomServices');
+app.use('/getCustomServices', validate, getCustomServices);
+
+const addBalance = require('./routes/Admin/addBalance');
+app.use('/addBalance', validate, addBalance);
+
+const changePassword = require('./routes/User/changePassword');
+app.use('/changePassword', validate, changePassword);
+
+const changeUserPassword = require('./routes/Admin/changeUserPassword');
+app.use('/changeUserPassword', validate, changeUserPassword);
+
+const getUser = require('./routes/Admin/getUser');
+app.use('/getUser', validate, getUser);
 
 // Start server
 const PORT = 3000;

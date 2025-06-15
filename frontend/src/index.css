@@ -1,6 +1,10 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+body {
+  background-color: #1A1A2E; /* Use your defined dark-background */
+  color: #E0E0E0; /* Use your defined text-light */
+}
 @keyframes zoom-in-95 {
   from {
     opacity: 0;

@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { serviceApi } from '../service/api';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css'; // Don't forget to import the CSS!
+
 
 function OrderForm() {
   const [formData, setFormData] = useState({
     linkInput: '',
-    serviceId: '',
+    serviceId: '', // This will hold selectedProduct.serviceId
     quantity: 1,
-    notes: '',
+    notes: '', // Still managed in state for display/user input
     totalAmount: 0,
   });
 
@@ -19,16 +22,14 @@ function OrderForm() {
     const fetchServices = async () => {
       try {
         setLoading(true);
-        // Simulate API call with a delay
-        if(servicesData.length!==0){
+        // Only fetch if servicesData is empty to prevent unnecessary re-fetches
+        if (servicesData.length !== 0) {
+          setLoading(false); // If already loaded, stop loading state
           return;
         }
 
-        const response = await axios.get('http://localhost:3000/userServices', { withCredentials: true });
-         // Return mock data
-         // Simulate 1 second network delay
-
-        setServicesData(response.data.data);
+        const response = await serviceApi.getUserServices();
+        setServicesData(response.data);
         setError(null); // Clear any previous errors
       } catch (err) {
         console.error("Failed to fetch services:", err);
@@ -41,11 +42,13 @@ function OrderForm() {
     fetchServices();
   }, []); // Empty dependency array means this runs once on mount
 
-  // Find the currently selected product's data using 'service' as the key
-  const selectedProduct = servicesData.find(p => p.service === formData.serviceId);
+  // Find the currently selected product's data using 'serviceId' as the key
+  const selectedProduct = servicesData.find(p => p.serviceId === formData.serviceId);
+
   // Access min and max using 'min' and 'max' keys, parse to integer
+  // Provide sensible defaults if no product is selected yet
   const minQuantity = selectedProduct ? parseInt(selectedProduct.min, 10) : 1;
-  const maxQuantity = selectedProduct ? parseInt(selectedProduct.max, 10) : 100000; // Default max if no product selected
+  const maxQuantity = selectedProduct ? parseInt(selectedProduct.max, 10) : 100000;
 
   // Effect to calculate total amount whenever product or quantity changes
   useEffect(() => {
@@ -73,13 +76,20 @@ function OrderForm() {
       let newValue = value;
       if (name === 'quantity') {
         const numValue = parseInt(value, 10);
-        // Ensure quantity stays within min/max bounds
-        if (selectedProduct) {
-          if (numValue < parseInt(selectedProduct.min, 10)) newValue = parseInt(selectedProduct.min, 10);
-          else if (numValue > parseInt(selectedProduct.max, 10)) newValue = parseInt(selectedProduct.max, 10);
+        // Ensure quantity is a valid number; if not, default to 1 or previous valid value
+        if (isNaN(numValue)) {
+            newValue = ''; // Allow empty input temporarily if user is deleting
         } else {
-          // If no product selected, apply general min/max (or no limits)
-          if (numValue < 1) newValue = 1;
+            // Apply min/max bounds only if a product is selected
+            if (selectedProduct) {
+                if (numValue < parseInt(selectedProduct.min, 10)) newValue = parseInt(selectedProduct.min, 10);
+                else if (numValue > parseInt(selectedProduct.max, 10)) newValue = parseInt(selectedProduct.max, 10);
+                else newValue = numValue;
+            } else {
+                // If no product selected, apply general min/max (or no limits)
+                if (numValue < 1) newValue = 1;
+                else newValue = numValue;
+            }
         }
       }
       return {
@@ -90,11 +100,79 @@ function OrderForm() {
   };
 
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // In a real application, you would send this data to a backend server.
-    console.log('Order Submitted:', formData);
-    console.log('Order submitted successfully!');
+
+    // Basic client-side validation before sending
+    if (!formData.serviceId) {
+      toast.error("Please select a product/service.");
+      return;
+    }
+    if (!selectedProduct) {
+        toast.error("Selected service details are missing. Please re-select.");
+        return;
+    }
+    if (formData.quantity < minQuantity || formData.quantity > maxQuantity) {
+        toast.error(`Quantity must be between ${minQuantity} and ${maxQuantity}.`);
+        return;
+    }
+    if (!formData.linkInput.trim()) {
+        toast.error("Link is required.");
+        return;
+    }
+
+    // Construct the data to send to the backend
+    // 'notes' is intentionally excluded from the payload, 'rate' is now included.
+    const orderData = {
+      linkInput: formData.linkInput,
+      serviceId: formData.serviceId, // Your 'Service ID' (e.g., '1', '2')
+      service: selectedProduct.service, // The 'User Defined Unique ID' (e.g., 'SMM-IG-F-STD-001')
+      quantity: formData.quantity,
+      rate: parseFloat(selectedProduct.rate), // Include the rate from selectedProduct
+      totalAmount: formData.totalAmount,
+      // 'notes' is intentionally excluded from the payload
+    };
+
+    try {
+      // Show loading toast immediately
+      const loadingToastId = toast.loading("Placing your order...", {
+        autoClose: false, // Keep open until success/error
+      });
+
+      const response = await serviceApi.placeOrder(orderData); // Send constructed orderData
+
+      // Update toast on success
+      toast.update(loadingToastId, {
+        render: "Order submitted successfully!",
+        type: "success",
+        isLoading: false,
+        autoClose: 3000, // Close after 3 seconds
+        closeButton: true,
+      });
+
+      console.log('Order submitted successfully!', response.data);
+      // Optionally reset form after successful submission
+      setFormData({
+        linkInput: '',
+        serviceId: '',
+        quantity: 1,
+        notes: '', // Reset notes field in state as well
+        totalAmount: 0,
+      });
+
+    } catch (err) {
+      console.error('Failed to submit order:', err);
+      // Extract error message from response if available, otherwise use generic
+      const errorMessage = err.response?.data?.message || err.message || 'An unexpected error occurred.';
+      // Update toast on error
+      toast.update(loadingToastId, {
+        render: `Failed to submit order: ${errorMessage}`,
+        type: "error",
+        isLoading: false,
+        autoClose: 5000, // Close after 5 seconds
+        closeButton: true,
+      });
+    }
   };
 
   if (loading) {
@@ -116,6 +194,20 @@ function OrderForm() {
 
   return (
     <div className="bg-gray-800 bg-opacity-70 backdrop-blur-sm p-8 rounded-xl shadow-2xl w-full max-w-md border border-purple-700 transition-all duration-500 ease-in-out transform hover:scale-[1.01]">
+      {/* ToastContainer for notifications */}
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="dark"
+      />
+
       <h2 className="text-3xl font-extrabold text-white mb-6 text-center">Place Your Order</h2>
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Link Input */}
@@ -152,8 +244,8 @@ function OrderForm() {
           >
             <option value="" disabled>Choose a product or service</option>
             {servicesData.map(product => (
-              <option key={product.service} value={product.service}>
-                {product.name} (Rate: ${parseFloat(product.rate).toFixed(2)}/unit)
+              <option key={product.serviceId} value={product.serviceId}>
+                {product.name} (Rate: ₹{parseFloat(product.rate).toFixed(2)}/unit)
               </option>
             ))}
           </select>
@@ -164,18 +256,16 @@ function OrderForm() {
           <div className="bg-gray-700 p-4 rounded-lg border border-purple-600 space-y-2 transition-all duration-300 ease-in-out">
             <h3 className="text-purple-300 text-base font-semibold mb-2">Selected Service Details:</h3>
             <div className="flex justify-between items-center">
-              <span className="text-purple-300 text-sm">Service ID:</span>
+              <span className="text-purple-300 text-sm">Service Name:</span>
               <span className="text-white text-sm font-medium">{selectedProduct.name}</span>
             </div>
-
             <div className="flex justify-between items-center">
-              <span className="text-purple-300 text-sm">Quantity Needed:</span>
-              <span className="text-white text-sm font-medium">{formData.quantity}</span>
+              <span className="text-purple-300 text-sm">User Defined ID:</span>
+              <span className="text-white text-sm font-medium">{selectedProduct.service}</span>
             </div>
-
             <div className="flex justify-between items-center">
-              <span className="text-purple-300 text-sm">Cost:</span>
-              <span className="text-white text-sm font-medium">{selectedProduct.rate}</span>
+              <span className="text-purple-300 text-sm">Rate:</span>
+              <span className="text-white text-sm font-medium">₹{parseFloat(selectedProduct.rate).toFixed(2)}</span>
             </div>
           </div>
         )}
@@ -205,11 +295,28 @@ function OrderForm() {
           />
         </div>
 
+        {/* Notes Input */}
+        <div>
+          <label htmlFor="notes" className="block text-purple-300 text-sm font-semibold mb-2">
+            Notes (Optional)
+          </label>
+          <textarea
+            id="notes"
+            name="notes"
+            value={formData.notes}
+            onChange={handleChange}
+            rows={3}
+            className="w-full p-3 bg-gray-700 border border-purple-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400 transition-all duration-300 resize-y"
+            placeholder="Any specific instructions for this order?"
+          ></textarea>
+        </div>
+
+
         {/* Total Amount Display */}
         <div className="flex justify-between items-center bg-gray-700 p-4 rounded-lg border border-purple-600">
           <span className="text-purple-300 text-lg font-semibold">Total Amount:</span>
           <span className="text-white text-2xl font-bold">
-            ${formData.totalAmount.toFixed(2)}
+            ₹{formData.totalAmount.toFixed(2)}
           </span>
         </div>
 
