@@ -2,48 +2,42 @@ const express = require('express');
 const router = express.Router();
 const db = require('../../utils/db');
 
-
-//   const payments = [
-//   {
-//     amount: 99.99,
-//     orderId: 12345,
-//     date: new Date('2025-05-30')
-//   },
-//   {
-//     amount: 49.99,
-//     orderId: 12346,
-//     date: new Date('2025-05-29')
-//   },
-//   {
-//     amount: 89.97,
-//     orderId: 12347,
-//     date: new Date('2025-05-28')
-//   },
-//   {
-//     amount: 49.99,
-//     orderId: 12348,
-//     date: new Date('2025-05-31')
-//   },
-//   {
-//     amount: 99.98,
-//     orderId: 12349,
-//     date: new Date('2025-05-27')
-//   }
-// ];
-
 // Example: Get all transactions for a user
 router.get('/', async (req, res) => {
     try {
-      const userId = req.user.id;
+        // userId from authenticated user (assuming it's a unique string, not MongoDB's _id)
+        const userId = req.user.id; // e.g., 'user123' from your UserSchema.userId
 
-      const user = await db.collection('users').findOne({ userId });
+        // --- Pagination Parameters ---
+        const page = parseInt(req.params.page) || 1;
+        const limit = parseInt(req.params.limit) || 10;
+        const skip = (page - 1) * limit;
 
-      const payments = await db.collection('transactions').find({user:user._id}).toArray();
+        // 1. Find the user document to get their MongoDB _id
+        const user = await db.collection('users').findOne({ userId });
 
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
 
-      res.status(200).json({data: payments});
+        const userObjectId = user._id; // This is the ObjectId we use for references
+
+        // 2. Fetch payments (transactions) for this user with pagination
+        // Ensure you have an index on 'user' and 'date' in the 'transactions' collection for performance
+        const payments = await db.collection('transactions')
+                               .find({ user: userObjectId })
+                               .sort({ date: -1 }) // Sort by date descending (newest first)
+                               .skip(skip)
+                               .limit(limit)
+                               .toArray();
+
+  
+        // 3. Send the paginated payments data to the frontend
+        res.status(200).json({ success: true, data: payments });
+
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Server Error' });
+        console.error('Error in /payments route:', error);
+        res.status(500).json({ success: false, message: 'Server Error: An error occurred while fetching payments.' });
     }
 });
 

@@ -174,9 +174,12 @@ export const serviceApi = {
     }
   },
 
-  getTransactions: async() => {
+  getTransactions: async(page,limit) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/getTransactions`, { withCredentials: true });
+      const response = await axios.get(`${API_BASE_URL}/getTransactions`, {
+        params: { page, limit },
+        withCredentials: true
+      });
       if (response.status === 200) {
         return { success: true, data: response.data.data};
       } else {
@@ -188,9 +191,12 @@ export const serviceApi = {
     }
   },
 
-  getOrders: async () => {
+  getOrders: async (page,limit) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/getOrders`, { withCredentials: true });
+      const response = await axios.get(`${API_BASE_URL}/getOrders`, {
+        params: { page, limit },
+        withCredentials: true
+      });
       if (response.status === 200) {
         return { success: true, data: response.data.data };
       } else {

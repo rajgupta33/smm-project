@@ -5,41 +5,70 @@ import { serviceApi } from '../../service/api'; // Ensure this path is correct
 
 export default function Payments() {
   const [payments, setPayments] = useState([]);
-  const [loading, setLoading] = useState(true); // Add loading state
-  const [error, setError] = useState(null); // Add error state
+  const [loading, setLoading] = useState(true); // Initial loading state for the first fetch
+  const [loadingMore, setLoadingMore] = useState(false); // Loading state specifically for "Load More"
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1); // Current page number
+  const [hasMore, setHasMore] = useState(true); // Flag to check if more data is available
+  const limit = 10; // Number of items per page
 
-  useEffect(() => {
-    async function fetchPayments() {
-      setLoading(true); // Start loading
-      setError(null); // Clear any previous errors
-      try {
-        const response = await serviceApi.getTransactions();
-        // Ensure data is an array, handle cases where it might be data.transactions or just data
-        const fetchedData = response.data.transactions || response.data;
-        setPayments(Array.isArray(fetchedData) ? fetchedData : []);
-      } catch (err) {
-        console.error("Failed to fetch transactions:", err);
-        setError("Couldn't load transactions. Please try again later."); // User-friendly error message
-        setPayments([]); // Ensure payments is empty on error
-      } finally {
-        setLoading(false); // End loading
+  // Function to fetch payments from the backend
+  async function fetchPayments() {
+    // Only set general loading if it's the first page
+    if (page === 1) setLoading(true);
+    else setLoadingMore(true); // Set specific loading for subsequent pages
+
+    setError(null); // Clear any previous errors
+
+    try {
+      // Pass page and limit as query parameters to your API
+      const response = await serviceApi.getTransactions({ page, limit });
+      // Assuming your API returns data like { success: true, data: [transactions] }
+      const fetchedData = response.data.data || response.data; // Adjust based on your actual API response structure
+
+      if (Array.isArray(fetchedData)) {
+        // Append new data to existing payments
+        setPayments(prevPayments => [...prevPayments, ...fetchedData]);
+        // Check if the number of items returned is less than the limit, indicating no more pages
+        setHasMore(fetchedData.length === limit);
+      } else {
+        setPayments([]);
+        setHasMore(false);
+        console.warn("API did not return an array of transactions:", fetchedData);
       }
+    } catch (err) {
+      console.error("Failed to fetch transactions:", err);
+      setError("Couldn't load transactions. Please try again later.");
+      setPayments([]); // Ensure payments is empty on error
+      setHasMore(false); // No more data if there's an error
+    } finally {
+      if (page === 1) setLoading(false);
+      else setLoadingMore(false);
     }
+  }
+
+  // useEffect hook to trigger fetching payments when the page number changes
+  useEffect(() => {
     fetchPayments();
-  }, []);
+  }, [page]); // Dependency array: re-run when 'page' changes
+
+  // Handler for the "Load More" button click
+  const handleLoadMore = () => {
+    setPage(prevPage => prevPage + 1); // Increment page to fetch next set of data
+  };
 
   return (
     <>
       <ResponsiveNavbar />
       <div className="min-h-screen bg-gradient-to-br from-black to-purple-950 text-white flex flex-col items-center p-4 sm:p-8">
-        <div className="w-full max-w-2xl lg:max-w-4xl mx-auto"> {/* Increased max-width for better layout */}
+        <div className="w-full max-w-2xl lg:max-w-4xl mx-auto">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-center mb-10 mt-4 sm:mt-8
                          text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 tracking-tight leading-tight select-none">
             Your Transactions
           </h1>
 
-          {/* Loading State */}
-          {loading && (
+          {/* Initial Loading State */}
+          {loading && payments.length === 0 && (
             <div className="flex justify-center items-center py-12">
               <svg className="animate-spin h-10 w-10 text-purple-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -103,9 +132,31 @@ export default function Payments() {
               ))}
             </div>
           )}
+
+          {/* Load More Button & Loading Indicator */}
+          {!loading && hasMore && !error && (
+            <div className="flex justify-center mt-8">
+              <button
+                onClick={handleLoadMore}
+                className="px-8 py-4 bg-purple-600 text-white font-bold rounded-lg shadow-lg hover:bg-purple-700 transition-all duration-300 transform hover:scale-105
+                           focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 focus:ring-offset-gray-800"
+              >
+                Load More Transactions
+              </button>
+            </div>
+          )}
+
+          {loadingMore && ( // Show loader when specifically loading more (after initial data)
+            <div className="flex justify-center items-center py-4 mt-4">
+              <svg className="animate-spin h-8 w-8 text-purple-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <p className="ml-3 text-purple-400 text-lg">Loading more...</p>
+            </div>
+          )}
         </div>
       </div>
     </>
   );
 }
-

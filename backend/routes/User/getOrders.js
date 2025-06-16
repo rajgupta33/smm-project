@@ -46,51 +46,91 @@ const apiUrl = process.env.API_URL;
 // ];
 // GET /user/orders - Get all orders
 router.get('/', async (req, res) => {
-  try {
-    const userId = req.user.id;
 
-    const user = await db.collection('users').findOne({ userId });
+    try {
+        // userId from authenticated user (assuming it's a unique string, not MongoDB's _id)
+        const userId = req.user.id; // e.g., 'user123' from your UserSchema.userId
 
-    const orders = await db.collection('orders').find({ user: user._id }).toArray();
+        // --- Pagination Parameters ---
+        const page = parseInt(req.params.page) || 1;
+        const limit = parseInt(req.params.limit) || 10;
+        const skip = (page - 1) * limit;
 
-    const pendingOrders = orders.filter(order => order.status !== 'Completed' || order.status !== 'Cancelled');
+        // 1. Find the user document to get their MongoDB _id
+        const user = await db.collection('users').findOne({ userId });
 
-    // Update status of all pending orders
-    // Batch pending order IDs in groups of 100
-    const batchSize = 100;
-    for (let i = 0; i < pendingOrders.length; i += batchSize) {
-      const batch = pendingOrders.slice(i, i + batchSize);
-      const orderIds = batch.map(order => order.orderId).join(',');
-
-      const statusParams = {
-        key: apiKey,
-        action: 'status',
-        orders: orderIds
-      };
-
-      try {
-        const statusResponse = await axios.post(apiUrl, null, { params: statusParams });
-        // Assume statusResponse.data is an object: { [orderId]: { status: '...' }, ... }
-        const statusData = statusResponse.data;
-
-        for (const order of batch) {
-          const newStatus = statusData[order.orderId]?.status || "Pending";
-          if (order.status !== newStatus) {
-            await db.collection('orders').updateOne(
-              { _id: order._id },
-              { $set: { status: newStatus } }
-            );
-            order.status = newStatus;
-          }
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found.' });
         }
-      } catch (err) {
-        // Optionally log error or handle as needed
-      }
+
+        const userObjectId = user._id; // This is the ObjectId we use for references
+
+        // 2. Fetch orders for this user with pagination
+        // Ensure you have an index on 'user' and 'createdAt' in the 'orders' collection for performance
+        const orders = await db.collection('orders')
+                               .find({ user: userObjectId })
+                               .sort({ createdAt: -1 }) // Sort by creation date, newest first, crucial for consistent pagination
+                               .skip(skip)
+                               .limit(limit)
+                               .toArray();
+
+        // 3. Filter for pending orders from the CURRENTLY FETCHED PAGE
+        const pendingOrders = orders.filter(order =>
+          order.status.toLowerCase() !== 'completed' && order.status.toLowerCase() !== 'cancelled'
+        );
+
+        // 4. Update status of these pending orders by calling external API in batches
+        const batchSize = 100; // Number of orders to query in a single external API call
+
+        for (let i = 0; i < pendingOrders.length; i += batchSize) {
+            const batch = pendingOrders.slice(i, i + batchSize);
+            const externalOrderIds = batch.map(order => order.orderId); // Assuming 'orderid' is the external ID
+
+            if (externalOrderIds.length === 0) continue;
+
+            const statusParams = {
+                key: apiKey,
+                action: 'status',
+                orders: externalOrderIds.join(',')
+            };
+
+            try {
+                const statusResponse = await axios.post(apiUrl, null, { params: statusParams });
+                const statusData = statusResponse.data;
+
+                const bulkOps = [];
+                for (const order of batch) {
+                    const newStatus = statusData[order.orderid]?.status;
+                    
+                    if (newStatus && order.status !== newStatus) {
+                        bulkOps.push({
+                            updateOne: {
+                                filter: { _id: order._id },
+                                update: { $set: { status: newStatus } }
+                            }
+                        });
+                        // Optimistically update the 'orders' array in memory for the response
+                        order.status = newStatus;
+                    }
+                }
+
+                if (bulkOps.length > 0) {
+                    await db.collection('orders').bulkWrite(bulkOps);
+                }
+
+            } catch (err) {
+                console.error(`Error fetching status for order batch from external API for user ${userIdString} (page ${page}):`, err.message);
+                // Log or handle the error without blocking the entire request
+            }
+        }
+
+        // 5. Send the paginated and potentially updated orders data to the frontend
+        res.status(200).json({ success: true, data: orders });
+
+    } catch (error) {
+        console.error('Error in /orders route:', error);
+        res.status(500).json({ success: false, message: 'Server Error: An error occurred while fetching and updating orders.' });
     }
-    res.status(200).json({ data: orders });
-  } catch (error) {
-    res.status(500).json({ error: 'An error occurred while fetching orders.' });
-  }
 });
 
 module.exports = router;
