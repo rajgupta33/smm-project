@@ -13,38 +13,17 @@ router.get("/",async(req,res)=>{
         const user = await db.collection('users').findOne({ userId: req.user.id });
 
         // Fetch all services from the external API
-        const response = await axios.post(
-            API_URL,
-            new URLSearchParams({
-            key: API_KEY,
-            action: 'services'
-            })
-        );
-        const map=new Map();
-
+        const userServiceIds = user.services || [];
         
-        // Filter services based on user's allowed services
-        user.services.map((serv)=>{
-            map.set(serv.serviceId, serv.rate);
-        })
-
+        const allServices = await db.collection('services').find().toArray();
         
-
-        const filteredServices = response.data.filter(service =>
-            map.has(service.service)
-        );
-
-        
-
-        const arr=filteredServices.map(serv => {serv.rate = map.get(serv.service)
-            return serv;
-        });
+        const arr = allServices.filter(service => userServiceIds.includes(service.serviceId));
         
         
         // Respond with the filtered services
         res.status(200).json({ data: arr });
+
     } catch (error) {
-        console.log(error);
         res.status(500).json({ error: 'Server error' });
     }
 })

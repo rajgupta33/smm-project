@@ -5,6 +5,7 @@ import { Eye, EyeOff, Lock, User } from 'lucide-react';
 import { useAuth } from '../../context/Authcontext'
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
+import { authApi } from '../../service/api';
 
 
 const LoginPage = () => {
@@ -51,14 +52,9 @@ const LoginPage = () => {
       setLoading(true);
       setError(null);
       
-      const response = await axios.post('http://localhost:3000/login', {
-        userId,
-        password
-      }, {
-        withCredentials: true
-      });
+      const response = await authApi.login({userId,password})
 
-      if (response.status === 200) {
+      if (response.success) {
         
         toast.success('Login successful!', {
           icon: <Lock className="text-green-500" />,
