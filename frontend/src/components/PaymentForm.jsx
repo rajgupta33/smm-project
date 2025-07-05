@@ -1,26 +1,13 @@
 import React, { useState } from 'react';
 import { CreditCard, User, CheckCircle } from 'lucide-react';
-import { toast , ToastContainer } from 'react-toastify'; // ToastContainer is usually in parent App component
+import { toast} from 'react-toastify'; 
+// ToastContainer is usually in parent App component
 // The CSS import for 'react-toastify/dist/ReactToastify.css' is typically handled at a higher level (e.g., in App.js or index.js)
 // or inlined in a style tag in the main App component, as we did in previous immersives.
 
 // Mock serviceApi for demonstration purposes
 // In a real application, this would be your actual API service
-const serviceApi = {
-  addBalance: async ({ userId, amount }) => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (userId && amount > 0) {
-          // Simulate a successful response
-          resolve({ data: `Successfully added ₹${amount.toFixed(2)} to user ${userId}`, success: true }); // Added 'success' field for clarity
-        } else {
-          // Simulate an error response
-          reject({ response: { data: { error: 'Invalid user ID or amount.' } } });
-        }
-      }, 1000); // Simulate network delay
-    });
-  },
-};
+
 
 
 const PaymentForm = () => {
@@ -56,7 +43,7 @@ const PaymentForm = () => {
 
       // Show success toast with the message from response.data
       // Assuming response.data contains the success message string
-      toast.success(response.data, { // Changed from response.success to response.data
+      toast.success(`payment sucessfull to ${response.data.userId} of amount ${response.data.amount}`, { // Changed from response.success to response.data
         theme: "dark",
         className: "bg-purple-950 text-purple-50 border-purple-700",
       });
