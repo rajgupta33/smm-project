@@ -1,7 +1,23 @@
 {
-  "name": "frontend",
+  "name": "smm-frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Frontend for SMM Platform - Social Media Marketing service management",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/smm-project.git"
+  },
+  "keywords": [
+    "smm",
+    "social-media-marketing",
+    "react",
+    "vite",
+    "tailwindcss",
+    "frontend",
+    "ui"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",

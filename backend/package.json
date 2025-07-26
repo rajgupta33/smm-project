@@ -1,9 +1,27 @@
 {
-  "name": "backend",
+  "name": "smm-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Backend API for SMM Platform - Social Media Marketing service management",
   "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/smm-project.git"
+  },
+  "keywords": [
+    "smm",
+    "social-media-marketing",
+    "api",
+    "nodejs",
+    "express",
+    "mongodb",
+    "jwt",
+    "authentication"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
   "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -27,5 +45,8 @@
     "require": "^2.4.20",
     "uuidv4": "^6.2.13",
     "zod": "^3.25.28"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
   }
 }

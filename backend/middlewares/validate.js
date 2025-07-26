@@ -17,7 +17,6 @@ const validate = (req, res, next) => {
         req.payload = req.body;
         next();
     } catch (err) {
-        console.log("it come here");
         return res.status(401).json({ message: 'Invalid request' });
     }
 };
