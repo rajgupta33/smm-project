@@ -192,7 +192,7 @@ const OrderCard = ({ order, onOrderUpdate }) => {
         <span className="font-semibold">Quantity:</span> {order.quantity}
       </p>
       <p className="flex items-center">
-        <span className="font-semibold">Rate:</span> <IndianRupee size={16} className="ml-1 mr-0.5" />{order.rate}
+        <span className="font-semibold">Rate:</span> <IndianRupee size={16} className="ml-1 mr-0.5" />{order.rate} per 1000
       </p>
       <p>
         <span className="font-semibold">Date:</span> {new Date(order.createdAt).toLocaleDateString('en-IN', {
