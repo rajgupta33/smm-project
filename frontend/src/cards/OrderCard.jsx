@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
-import { serviceApi } from '../service/api'; // Make sure this path is correct
+import { serviceApi } from '../service/api'; 
 import { RotateCcw, Search, AlertCircle, Check, Info, IndianRupee, RefreshCcw } from 'lucide-react';
 
 const OrderCard = ({ order, onOrderUpdate }) => {
   const [refillStatusLoading, setRefillStatusLoading] = useState(false);
-  const [currentRefillStatus, setCurrentRefillStatus] = useState(null); // To display status after checking refill
+  const [currentRefillStatus, setCurrentRefillStatus] = useState(null); 
   
-  // State for checking main order status - now stores the full response data
+  
   const [checkingOrderStatusLoading, setCheckingOrderStatusLoading] = useState(false);
-  // Initialize as null; will store the full API response for detailed status when checked.
+  
   const [lastCheckedOrderStatusDetails, setLastCheckedOrderStatusDetails] = useState(null); 
 
 
-  // Function to request a refill
+  
   const handleRequestRefill = async () => {
-    // Only allow requesting refill if order.refill is exactly an empty string ""
+    
     if (order.refill !== "") {
       toast.warn("Refill is not available to be requested for this order.", { theme: "dark" });
       return;
@@ -24,7 +24,7 @@ const OrderCard = ({ order, onOrderUpdate }) => {
     try {
       const loadingToastId = toast.loading("Requesting refill...", { theme: "dark" });
 
-      // Assuming serviceApi.requestRefill expects the order's unique ID and returns a refillId
+      
       const response = await serviceApi.requestRefill(order.orderId);
 
       if (response.success) {
@@ -37,10 +37,7 @@ const OrderCard = ({ order, onOrderUpdate }) => {
           icon: <Check className="text-green-500" />
         });
         
-        // IMPORTANT: Call parent to refresh specific order or list.
-        // This is crucial for `order.refill` to be updated by the backend
-        // from "" to the actual refillId (string) or to -1 if no more refills
-        // are available after this request.
+        
         if (onOrderUpdate) {
             onOrderUpdate(order.orderId);
         }
@@ -63,31 +60,31 @@ const OrderCard = ({ order, onOrderUpdate }) => {
     }
   };
 
-  // Function to check refill status
+  
   const handleCheckRefillStatus = async () => {
-    // Use order.refill directly as the refillId if it's a non-empty string
+    
     const refillIdToCheck = order.refill;
 
-    // Check if order.refill is a non-empty string before proceeding
+    
     if (typeof refillIdToCheck !== 'string' || refillIdToCheck.trim() === '') {
       toast.info("No active refill request ID available to check status.", { theme: "dark" });
       return;
     }
 
     setRefillStatusLoading(true);
-    setCurrentRefillStatus(null); // Clear previous status
+    setCurrentRefillStatus(null); 
 
     try {
       const loadingToastId = toast.loading(`Checking status for Refill ID: ${refillIdToCheck}...`, { theme: "dark" });
 
-      // Assuming serviceApi.checkRefillStatus returns { success: true, status: "Completed" }
+      
       const response = await serviceApi.checkRefillStatus(refillIdToCheck); 
 
       if (response.success) {
-        const status = response.data.status; // Get the status from the response
+        const status = response.data.status; 
         setCurrentRefillStatus(status); 
 
-        // Determine toast type and icon based on status
+        
         const toastType = status === 'Completed' ? "success" : "info";
         const toastIcon = status === 'Completed' ? <Check className="text-green-500" /> : <Info className="text-blue-400" />;
 
@@ -128,8 +125,7 @@ const OrderCard = ({ order, onOrderUpdate }) => {
     try {
       const loadingToastId = toast.loading(`Checking status for Order ID: ${order.orderId}...`, { theme: "dark" });
       
-      // Assuming serviceApi.checkOrderStatus returns data like:
-      // { success: true, data: { charge: "0.27819", start_count: "3572", status: "Partial", remains: "157", currency: "USD" } }
+      
       const response = await serviceApi.checkOrderStatus(order.orderId);
 
       if (response.success && response.data) { // Check for both success and data presence
@@ -149,8 +145,7 @@ const OrderCard = ({ order, onOrderUpdate }) => {
           icon: toastIcon
         });
 
-        // Optionally, if the order's main status is updated, trigger a parent update
-        // This makes sure the primary order.lastStatus prop gets updated if the backend changed it
+        
         if (onOrderUpdate && order.lastStatus !== status) { // Changed to order.lastStatus
             onOrderUpdate(order.orderId); 
         }
@@ -198,6 +193,13 @@ const OrderCard = ({ order, onOrderUpdate }) => {
       </p>
       <p className="flex items-center">
         <span className="font-semibold">Rate:</span> <IndianRupee size={16} className="ml-1 mr-0.5" />{order.rate}
+      </p>
+      <p>
+        <span className="font-semibold">Date:</span> {new Date(order.createdAt).toLocaleDateString('en-IN', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric'
+            })}
       </p>
       <p>
         <span className="font-semibold">Last Status:</span>{' '} {/* Changed to Last Status */}
@@ -263,7 +265,7 @@ const OrderCard = ({ order, onOrderUpdate }) => {
         )}
 
         {/* Check Main Order Status Button */}
-        <div className="mt-1">
+        {order.lastStatus !== 'Completed' && (<div className="mt-1">
           <button
             onClick={handleCheckOrderStatus}
             disabled={checkingOrderStatusLoading || refillStatusLoading} // Disable if any other operation is loading
@@ -272,7 +274,7 @@ const OrderCard = ({ order, onOrderUpdate }) => {
             <RefreshCcw size={18} />
             {checkingOrderStatusLoading ? 'Updating Status...' : 'Check Order Status'}
           </button>
-        </div>
+        </div>)}
       </div>
     </div>
   );
