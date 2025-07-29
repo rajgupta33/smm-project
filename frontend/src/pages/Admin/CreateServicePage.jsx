@@ -317,7 +317,7 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label htmlFor="rate" className="block text-sm font-medium text-gray-300">
-                Rate (Backend: rate)
+                Rate per 1000 (Backend: rate)
               </label>
               <input
                 type="number"
