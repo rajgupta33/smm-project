@@ -8,5 +8,5 @@ const UserSchema = new mongoose.Schema({
         type: String
     }]
 });
-
+UserSchema.index({userId:1});
 module.exports = mongoose.model('User', UserSchema);

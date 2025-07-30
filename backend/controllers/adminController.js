@@ -24,8 +24,8 @@ class AdminController{
             }
             try {
                 const hashedPassword = await bcrypt.hash(password, 10);
-                const newUser = new user({
-                    userId,
+                const newUser = new User({
+                    userId:userId.toLowerCase(),
                     password: hashedPassword,
                     role,
                     services
@@ -85,7 +85,7 @@ class AdminController{
         }
     
         async addService(req, res) {
-            const { userId, serviceId } = req.payload; // Use req.body for POST data
+            const { userId, serviceId } = req.payload;
         
         
             if (!userId || !serviceId) {
@@ -97,7 +97,7 @@ class AdminController{
                 if (!user) {
                     return res.status(404).json({ message: 'Invalid user.' });
                 }
-                // Add serviceId if not already present
+                
                 if (!user.services.includes(serviceId)) {
                     user.services.push(serviceId);
                     await user.save();
@@ -141,20 +141,20 @@ class AdminController{
             const { userId, newPassword } = req.body;
     
            
-            // Check if user is authenticated and is admin
+            
             if (!req.user || req.user.role !== 'admin') {
                 return res.status(403).json({ message: 'Access denied' });
             }
     
-            // Validate input
+            
             if (!userId || !newPassword) {
                 return res.status(400).json({ message: 'userId and password are required' });
             }
     
-            // Hash the new password
+            
             const hashedPassword = await bcrypt.hash(newPassword, 10);
     
-            // Update user's password
+            
             const user = await User.findOneAndUpdate(
                 { userId },
                 { password: hashedPassword },
@@ -165,7 +165,7 @@ class AdminController{
                 return res.status(404).json({ message: 'User not found' });
             }
     
-            // Respond with userId and (plain) password as requested
+            
             
             res.status(200).json({ userId, newPassword });
         } catch (err) {
@@ -177,8 +177,7 @@ class AdminController{
     async getUser(req, res){
         try {
             const {userId} = req.payload;
-            // Replace with your actual user fetching logic, e.g., from a database
-            // const user = await User.findById(userId);
+            
             const user = await User.findOne({userId});
     
             const orders = await Order
@@ -206,7 +205,7 @@ class AdminController{
     }
 
     async createService(req, res)  {
-        // Your logic to create a service goes here
+        
         if(req.user.role!=='admin'){
             return res.status(400).json({ error:'you are not a admin' });
         }
@@ -227,10 +226,10 @@ class AdminController{
     async deleteService(req, res) {
         const { serviceId } = req.payload;
         try {
-            // Delete the service
+            
             const deletedService = await Service.findOneAndDelete({ serviceId });
     
-            // Remove the service from all users' services array
+            
             if (deletedService) {
                 await User.updateMany(
                     { services: { $in: [serviceId] } },

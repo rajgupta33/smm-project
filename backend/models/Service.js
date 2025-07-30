@@ -36,4 +36,6 @@ const ServiceSchema = new mongoose.Schema({
     }
 });
 
+ServiceSchema.index({serviceId:1});
+
 module.exports = mongoose.model('Service', ServiceSchema);

@@ -21,7 +21,7 @@ const transactionSchema = new mongoose.Schema({
     },
 });
 
-// transactionSchema.index({ user: 1 }); // Essential for finding all transactions for a user
-// transactionSchema.index({ user: 1, date: -1 }); // For finding a user's transactions sorted by newest
+transactionSchema.index({ user: 1 }); 
+transactionSchema.index({ user: 1, date: -1 }); 
 
 module.exports = mongoose.model('Transaction', transactionSchema);
