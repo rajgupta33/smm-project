@@ -21,7 +21,7 @@ const CreateUser = () => {
       try {
         if (services.length === 0) {
           setLoading(true);
-          const response = await axios.get('/getServices');
+          const response = await axios.get('/api/getServices');
           setServices(response.data.data);
         }
       } catch (error) {
@@ -122,7 +122,7 @@ const CreateUser = () => {
       setLoading(true);
       setError(null);
       const response = await axios.post(
-        '/createUser',
+        '/api/createUser',
         {
           userId,
           password,

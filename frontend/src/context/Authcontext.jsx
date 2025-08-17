@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }) => {
         },
     });
     useEffect(() => {
-    axios.get('/me', { withCredentials: true })
+    axios.get('/api/me', { withCredentials: true })
       .then(res => {
         setAuth({
           isAuthenticated: true,

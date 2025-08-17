@@ -51,7 +51,7 @@ const LoginPage = () => {
       setLoading(true);
       setError(null);
       
-      const response = await axios.post('/login', {
+      const response = await axios.post('/api/login', {
         userId,
         password
       }, {
