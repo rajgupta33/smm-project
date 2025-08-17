@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require("cookie-parser");
 const bodyParser=require('body-parser');
-const db=require('./utils/db');
+const connectDB = require('./utils/db');
 const validate = require('./middelwares/validate')
 
 const app = express();
@@ -10,6 +10,15 @@ const app = express();
 
 app.use(cookieParser());
 
+
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    res.status(500).json({ error: "Database connection failed" });
+  }
+});
 
 
 app.use(bodyParser.json());
@@ -51,5 +60,7 @@ app.use('/api/auth/me',me);
 //     users[username].password = newPassword;
 //     res.json({ message: 'Password updated' });
 // });
+
+
 
 module.exports = app;
