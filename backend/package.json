@@ -1,7 +1,6 @@
 {
   "name": "smm-backend",
   "version": "1.0.0",
-  "description": "Backend API for SMM Platform - Social Media Marketing service management",
   "main": "index.js",
   "repository": {
     "type": "git",
@@ -46,7 +45,5 @@
     "uuidv4": "^6.2.13",
     "zod": "^3.25.28"
   },
-  "devDependencies": {
-    "nodemon": "^3.0.0"
-  }
+  "description": ""
 }
