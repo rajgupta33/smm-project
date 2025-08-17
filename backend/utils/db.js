@@ -9,7 +9,7 @@ if (!cached) {
 
 async function connectDB() {
   if (cached.conn) {
-    return cached.conn.connection;
+    return cached.conn;
   }
 
   if (!cached.promise) {
@@ -17,17 +17,18 @@ async function connectDB() {
     cached.promise = mongoose.connect(uri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-    }).then((mongoose) => {
+    }).then((mongo) => {
       console.log("MongoDB connected");
-      return mongoose.connection;
+      return mongoose.connection.db;
     }).catch((err) => {
       console.error("MongoDB connection error:", err);
+      cached.promise = null;
       throw err;
     });
   }
 
   cached.conn = await cached.promise;
-  return cached.conn.connection;
+  return mongoose.connection.db;
 }
 
 module.exports = connectDB;
