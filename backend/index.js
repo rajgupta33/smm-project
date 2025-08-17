@@ -20,14 +20,6 @@ app.use(async (req, res, next) => {
   }
 });
 
-
-let promise = connectDB();
-promise.then((res) => {
-    console.log("Connected to MongoDB");
-    console.log(res);
-});
-
-
 app.use(bodyParser.json());
 
 
@@ -67,10 +59,5 @@ app.use('/api/auth/me',me);
 //     users[username].password = newPassword;
 //     res.json({ message: 'Password updated' });
 // });
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
 
 module.exports = app;
