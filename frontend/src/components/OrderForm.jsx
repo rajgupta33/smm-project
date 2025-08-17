@@ -24,7 +24,7 @@ function OrderForm() {
           return;
         }
 
-        const response = await axios.get('http://localhost:3000/userServices', { withCredentials: true });
+        const response = await axios.get('/userServices', { withCredentials: true });
          // Return mock data
          // Simulate 1 second network delay
 
