@@ -9,8 +9,10 @@ import Payments from './pages/user/Payments'
 import AddPayment from './pages/Admin/AddPaytemnt'
 import Unauthorized from './pages/user/Unauthorized'
 import ChangeUserPassword from './pages/Admin/ChangeUserPassword'
-import CheckUser from './pages/Admin/CheckUser'
+import ServiceManager from './pages/Admin/CreateService'
 import ProtectedRoute from './components/ProtectedRoute'
+import UserProfilePage from './pages/user/UserProfilePage'
+import UserDashboardPage from './pages/Admin/UserDashboardPage'
 
 function App() {
   const [count, setCount] = useState(0)
@@ -27,14 +29,16 @@ function App() {
           {/* Admin routes */}
           <Route element={<ProtectedRoute requiredRole="admin" />}>
             <Route path="/addPayment" element={<AddPayment/>} />
-            <Route path="/checkUser" element={<CheckUser/>}/>
+            <Route path="/services" element={<ServiceManager/>}/>
             <Route path="/changeUserPassword" element={<ChangeUserPassword/>}/>
+            <Route path="/userDashboard" element={<UserDashboardPage/>}/>
           </Route>
 
           {/* User routes */}
           <Route element={<ProtectedRoute requiredRole="user" />}>
             <Route path="/payments" element={<Payments/>} />
             <Route path="/orders" element={<Order/>}/>
+            <Route path="/profile" element={<UserProfilePage/>}/>
           </Route>
         </Routes>
       </BrowserRouter>
@@ -42,4 +46,4 @@ function App() {
   )
 }
 
-export default App
+export default App;

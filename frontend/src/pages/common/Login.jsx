@@ -5,6 +5,7 @@ import { Eye, EyeOff, Lock, User } from 'lucide-react';
 import { useAuth } from '../../context/Authcontext'
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
+import { authApi } from '../../service/api';
 
 
 const LoginPage = () => {
@@ -51,22 +52,24 @@ const LoginPage = () => {
       setLoading(true);
       setError(null);
       
-      const response = await axios.post('/api/login', {
-        userId,
-        password
-      }, {
-        withCredentials: true
-      });
+      const response = await authApi.login({userId,password})
 
-      if (response.status === 200) {
+      if (response.success) {
         
         toast.success('Login successful!', {
           icon: <Lock className="text-green-500" />,
           theme: "dark",
-          className: "bg-black/90 border-purple-900/30"
+          className: "bg-black/90 border-purple-900/30",
+          autoClose: 2000,
         });
         auth.login(response.data.userId, response.data.role, response.data.money);
         // Handle successful login
+      }else{
+        toast.error('Invalid credentials', {
+          icon: <Lock className="text-red-500" />,
+          theme: "dark",
+          className: "bg-black/90 border-purple-900/30"
+        });
       }
     } catch (error) {
       if (error.response?.status === 401) {

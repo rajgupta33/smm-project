@@ -31,33 +31,11 @@ app.get("/api/check",(req,res)=>{
 const createUser=require('./routes/Admin/createUser');
 app.use("/api/createUser", validate ,createUser);
 
-// Create user route
-const login=require('./routes/common/login');
-app.use('/api/login',login);
+const userRoutes = require('./routes/userRoutes');
+app.use('/api/user', userRoutes);
 
-//for get all services
-const getServices=require('./routes/Admin/getServices');
-app.use('/api/getServices',getServices);
+const authRoutes = require('./routes/authRoutes');
+app.use('/api/auth', authRoutes);
 
-//for place a order
-const placeOrder=require('./routes/User/placeOrder');
-app.use("/api/place-order",placeOrder)
-
-const userService=require('./routes/User/getUserServices');
-app.use("/api/userServices",validate,userService);
-
-const me=require('./routes/common/me');
-app.use('/api/auth/me',me);
-
-// Update password route
-// app.put('/users/:username/password', (req, res) => {
-//     const { username } = req.params;
-//     const { newPassword } = req.body;
-//     if (!users[username]) {
-//         return res.status(404).json({ message: 'User not found' });
-//     }
-//     users[username].password = newPassword;
-//     res.json({ message: 'Password updated' });
-// });
 
 module.exports = app;

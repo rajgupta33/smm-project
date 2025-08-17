@@ -1,8 +1,26 @@
 {
-  "name": "backend",
+  "name": "smm-backend",
   "version": "1.0.0",
   "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/smm-project.git"
+  },
+  "keywords": [
+    "smm",
+    "social-media-marketing",
+    "api",
+    "nodejs",
+    "express",
+    "mongodb",
+    "jwt",
+    "authentication"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
   "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -15,13 +33,16 @@
     "cookie-parser": "^1.4.7",
     "cookies": "^0.9.1",
     "cors": "^2.8.5",
+    "crypto": "^1.0.1",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "json-web-token": "^3.2.0",
     "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.17.0",
     "mongoose": "^8.15.0",
     "nanoid": "^5.1.5",
     "require": "^2.4.20",
+    "uuidv4": "^6.2.13",
     "zod": "^3.25.28"
   },
   "description": ""
