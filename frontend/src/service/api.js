@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE_URL = 'https://smmbackend-hayt.onrender.com';
+const API_BASE_URL = '/api';
 
 
 const handleResponse = async (response) => {
@@ -18,7 +18,7 @@ export const authApi = {
   login: async ({ userId, password }) => {
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/login`,
+        `${API_BASE_URL}/auth/login`,
         { userId, password },
         { withCredentials: true }
       );
@@ -34,7 +34,7 @@ export const authApi = {
   },
   me: async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/me`, { withCredentials: true });
+      const response = await axios.get(`${API_BASE_URL}/auth/me`, { withCredentials: true });
       if (response.status === 200) {
         const { userId, role, wallet } = response.data;
         return {
