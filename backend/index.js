@@ -7,7 +7,7 @@ const validate = require('./middelwares/validate')
 
 const app = express();
 app.use(cors({
-    origin: "http://localhost:5173",
+    origin: "http://www.getfame.social",
     credentials: true
 }));
 
