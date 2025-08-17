@@ -19,7 +19,7 @@ async function connectDB() {
       useUnifiedTopology: true,
     }).then((mongoose) => {
       console.log("MongoDB connected");
-      return mongoose;
+      return mongoose.connection;
     }).catch((err) => {
       console.error("MongoDB connection error:", err);
       throw err;
@@ -27,7 +27,7 @@ async function connectDB() {
   }
 
   cached.conn = await cached.promise;
-  return cached.conn;
+  return cached.conn.connection;
 }
 
 module.exports = connectDB;
