@@ -1,2 +1,2 @@
 # smm-project
-SMM  project
+SMM project
