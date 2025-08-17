@@ -35,7 +35,7 @@ router.post('/', async (req, res) => {
 
         res.cookie(COOKIE_NAME, token, {
             httpOnly: true,
-            secure: false, // Not using HTTPS on localhost
+            secure: true, // Not using HTTPS on localhost
             sameSite: 'lax', // Allow cross-site requests from your React frontend
             maxAge: 60 * 60 * 1000 // 1 hour
         });
