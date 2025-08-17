@@ -1,6 +1,6 @@
 const router=express.Router();
 const bcrypt=require('bcrypt');
-const db=require('../../utils/db');
+const connectDB=require('../../utils/db');
 router.put("/",async(req,res)=>{
     const {userid , password} = req.payload;
     if(req.user.role!=='admin'){
@@ -8,6 +8,8 @@ router.put("/",async(req,res)=>{
     }
     try {
         const newPassword = await bcrypt.hash(password, 10);
+
+        const db = await connectDB();
 
         const user = await db.collection('users').updateOne(
             { userid },

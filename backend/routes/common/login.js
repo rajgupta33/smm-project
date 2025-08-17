@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const db = require('../../utils/db'); // Assume db.getUserById(userId) returns user object
+const connectDB=require('../../utils/db'); // Assume db.getUserById(userId) returns user object
 require('dotenv').config();
 
 const router = express.Router();
@@ -19,6 +19,7 @@ router.post('/', async (req, res) => {
     }
 
     try {
+        const db = await connectDB();
         const user = await db.collection('users').findOne({userId});
 
         if (!user) {

@@ -1,6 +1,6 @@
 const express=require('express');
 const router=express.Router();
-const db=require('../../utils/db');
+const connectDB=require('../../utils/db');
 const axios=require('axios');
 require('dotenv').config();
 const API_URL=process.env.API_URL;
@@ -9,7 +9,7 @@ router.get("/",async(req,res)=>{
     try {
         // Example query, replace with your actual logic
         // Fetch the user from the database
-        
+        const db = await connectDB();
         const user = await db.collection('users').findOne({ userId: req.user.id });
 
         // Fetch all services from the external API

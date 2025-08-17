@@ -1,11 +1,15 @@
 const express=require('express');
-const db=require('../../utils/db');
+const connectDB=require('../../utils/db');
+
 const router=express.Router();
 router.put("/",async(req,res)=>{
     const {userid,money} = req.payload;
     if(req.user.role!=='admin'){
         res.status(404).json({msg:"unauthorized"});
     }
+
+    const db = await connectDB();
+
     try {
         const curr = await db.collection('users').findOne({ userid });
         if (!curr) {
