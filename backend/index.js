@@ -6,10 +6,6 @@ const db=require('./utils/db');
 const validate = require('./middelwares/validate')
 
 const app = express();
-app.use(cors({
-    origin: "http://www.getfame.social",
-    credentials: true
-}));
 
 
 app.use(cookieParser());
@@ -19,31 +15,31 @@ app.use(cookieParser());
 app.use(bodyParser.json());
 
 
-app.get("/check",(req,res)=>{
+app.get("/api/check",(req,res)=>{
     res.status(200).json({msg:"all good"})
 })
 
 // Login route
 const createUser=require('./routes/Admin/createUser');
-app.use("/createUser", validate ,createUser);
+app.use("/api/createUser", validate ,createUser);
 
 // Create user route
 const login=require('./routes/common/login');
-app.use('/login',login);
+app.use('/api/login',login);
 
 //for get all services
 const getServices=require('./routes/Admin/getServices');
-app.use('/getServices',getServices);
+app.use('/api/getServices',getServices);
 
 //for place a order
 const placeOrder=require('./routes/User/placeOrder');
-app.use("/place-order",placeOrder)
+app.use("/api/place-order",placeOrder)
 
 const userService=require('./routes/User/getUserServices');
-app.use("/userServices",validate,userService);
+app.use("/api/userServices",validate,userService);
 
 const me=require('./routes/common/me');
-app.use('auth/me',me);
+app.use('/api/auth/me',me);
 
 // Update password route
 // app.put('/users/:username/password', (req, res) => {
@@ -56,8 +52,4 @@ app.use('auth/me',me);
 //     res.json({ message: 'Password updated' });
 // });
 
-// Start server
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+module.exports = app;
