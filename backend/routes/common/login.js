@@ -43,9 +43,7 @@ router.post('/', async (req, res) => {
 
         res.status(200).json({ userId, role:user.role, money:user.money});
     } catch (err) {
-
-        console.error('Login error:', err);
-        res.status(500).json({ message: 'Server error.' });
+        res.status(500).json({ message: 'Server error.' + err });
     }
 });
 
