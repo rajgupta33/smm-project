@@ -10,14 +10,12 @@
       "use": "@vercel/node"
     }
   ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/backend/index.js" },
-    {
-      "src": "/assets/(.*\\.(js|css|svg|png|jpg|jpeg|gif|ico))$",
-      "dest": "/frontend/assets/$1"
-    }
-  ],
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "/backend/index.js" },
+    {
+      "source": "/assets/(.*)",
+      "destination": "/frontend/assets/$1"
+    },
     {
       "source": "/(.*)",
       "destination": "/frontend/index.html"
