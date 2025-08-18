@@ -28,8 +28,8 @@ app.get("/api/check",(req,res)=>{
 })
 
 // Login route
-const createUser=require('./routes/Admin/createUser');
-app.use("/api/createUser", validate ,createUser);
+const adminRoutes=require('./routes/adminRoutes');
+app.use("/api/admin", validate ,adminRoutes);
 
 const userRoutes = require('./routes/userRoutes');
 app.use('/api/user', userRoutes);
