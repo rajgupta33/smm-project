@@ -15,7 +15,12 @@
     {
       "src": "/assets/(.*\\.(js|css|svg|png|jpg|jpeg|gif|ico))$",
       "dest": "/frontend/assets/$1"
-    },
-    { "src": "/(.*)", "dest": "/frontend/index.html" }
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/frontend/index.html"
+    }
   ]
 }
