@@ -16,7 +16,7 @@
   "routes": [
     { "src": "/api/(.*)", "dest": "backend/index.js" },
     {
-      "src": "/frontend/(.*\\.(js|css|svg|png|jpg|jpeg|gif|ico))",
+      "src": "/assets/(.*\\.(js|css|svg|png|jpg|jpeg|gif|ico))",
       "dest": "/frontend/$1"
     },
     { "src": "/(.*)", "dest": "/frontend/index.html" }
