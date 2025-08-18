@@ -3,7 +3,7 @@ const cors = require('cors');
 const cookieParser = require("cookie-parser");
 const bodyParser=require('body-parser');
 const connectDB = require('./utils/db');
-const validate = require('./middelwares/validate')
+const validate = require('./middlewares/validate')
 
 const app = express();
 
