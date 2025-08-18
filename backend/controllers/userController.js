@@ -5,10 +5,10 @@ const Service = require('../models/Service');
 const User = require('../models/User');
 const axios = require('axios');
 const mongoose = require('mongoose');
-const db = require('../utils/db');
+const connectDB = require('../utils/db');
 const API_URL=process.env.API_URL;
 const API_KEY =process.env.API_KEY;
-const bcrypt = require('bcrypt')
+const bcrypt = require('bcrypt');
 class UserController {
 
     async changePassword(req, res) {
@@ -90,10 +90,11 @@ class UserController {
     }
 
     async placeOrder(req, res) {
-        const session = await mongoose.startSession();
-        let orderId, status;
 
         try {
+            await connectDB();
+            const session = await mongoose.startSession();
+            let orderId, status;
             await session.withTransaction(async () => {
                 const apiServicesResponse = await axios.post(API_URL, new URLSearchParams({
                     key: API_KEY,
