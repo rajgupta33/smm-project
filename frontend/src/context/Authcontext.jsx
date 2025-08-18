@@ -1,7 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
-import {useEffect} from 'react'
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authApi } from '../service/api';
-
 
 const AuthContext = createContext();
 
@@ -13,41 +11,51 @@ export const AuthProvider = ({ children }) => {
             role: '',
             wallet: 0,
         },
+        isLoading: true, // Add loading state
     });
-    useEffect(() => {
 
-        authApi.me()
-            .then((data) => {
-            if (data.data.success) {
-                const res = data.data.user;
+    useEffect(() => {
+        // Check if user is already authenticated (e.g., from localStorage/sessionStorage)
+        const checkAuth = async () => {
+            try {
+                const data = await authApi.me();
+                if (data.data.success) {
+                    const res = data.data.user;
+                    setAuth({
+                        isAuthenticated: true,
+                        user: {
+                            id: res.id,
+                            role: res.role,
+                            wallet: res.wallet,
+                        },
+                        isLoading: false,
+                    });
+                } else {
+                    setAuth({
+                        isAuthenticated: false,
+                        user: { id: '', role: '', wallet: 0 },
+                        isLoading: false,
+                    });
+                }
+            } catch (error) {
+                // Don't redirect on API failure, just set as not authenticated
+                console.log('Auth check failed:', error);
                 setAuth({
-                isAuthenticated: true,
-                user: {
-                    id: res.id,
-                    role: res.role,
-                    wallet: res.wallet,
-                },
-                });
-            } else {
-                setAuth({
-                isAuthenticated: false,
-                user: { id: '', role: '', wallet: 0 },
+                    isAuthenticated: false,
+                    user: { id: '', role: '', wallet: 0 },
+                    isLoading: false,
                 });
             }
-            })
-            .catch(() => {
-            setAuth({
-                isAuthenticated: false,
-                user: { id: '', role: '', wallet: 0 },
-            });
-            });
-        
-    }, []);
+        };
+
+        checkAuth();
+    }, []); // Empty dependency array - only run once on mount
 
     const login = (id, role, wallet) => {
         setAuth({
             isAuthenticated: true,
             user: { id, role, wallet },
+            isLoading: false,
         });
     };
 
@@ -55,6 +63,7 @@ export const AuthProvider = ({ children }) => {
         setAuth({
             isAuthenticated: false,
             user: { id: '', role: '', wallet: 0 },
+            isLoading: false,
         });
     };
 
@@ -65,4 +74,10 @@ export const AuthProvider = ({ children }) => {
     );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
+};
