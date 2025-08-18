@@ -15,8 +15,8 @@ async function connectDB() {
   if (!cached.promise) {
     const uri = process.env.MONGO_URI;
     cached.promise = mongoose.connect(uri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+      maxPoolSize: 5, // recommended for serverless
+      serverSelectionTimeoutMS: 5000, // fail fast
     }).then((mongo) => {
       console.log("MongoDB connected");
       return mongoose.connection.db;
