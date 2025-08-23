@@ -5,7 +5,7 @@ const Service = require('../models/Service');
 const User = require('../models/User');
 const axios = require('axios');
 const mongoose = require('mongoose');
-const connectDB = require('../utils/db');
+const { connectToDatabase } = require('../utils/serverlessDb');
 const API_URL=process.env.API_URL;
 const API_KEY =process.env.API_KEY;
 const bcrypt = require('bcrypt');
@@ -92,7 +92,7 @@ class UserController {
     async placeOrder(req, res) {
 
         try {
-            await connectDB();
+            await connectToDatabase();
             const session = await mongoose.startSession();
             let orderId, status;
             await session.withTransaction(async () => {
