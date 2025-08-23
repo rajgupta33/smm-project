@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require("cookie-parser");
 const bodyParser = require('body-parser');
-const connectDB = require('./utils/db');
+const { connectToDatabase, disconnectFromDatabase } = require('./utils/serverlessDb');
 const validate = require('./middelwares/validate');
 
 const app = express();
@@ -39,7 +39,7 @@ app.use(cookieParser());
 // Database connection middleware
 app.use(async (req, res, next) => {
   try {
-    await connectDB();
+    await connectToDatabase();
     next();
   } catch (err) {
     console.error('Database connection failed:', err);
@@ -47,12 +47,39 @@ app.use(async (req, res, next) => {
   }
 });
 
+// Graceful shutdown handling
+process.on('SIGINT', async () => {
+  console.log('Received SIGINT. Performing graceful shutdown...');
+  await disconnectFromDatabase();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('Received SIGTERM. Performing graceful shutdown...');
+  await disconnectFromDatabase();
+  process.exit(0);
+});
+
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check route
-app.get("/api/check", (req, res) => {
-    res.status(200).json({ msg: "all good" });
+app.get("/api/check", async (req, res) => {
+    try {
+        const { getConnectionStatus } = require('./utils/serverlessDb');
+        const dbStatus = getConnectionStatus();
+        
+        res.status(200).json({ 
+            msg: "all good",
+            timestamp: new Date().toISOString(),
+            database: dbStatus
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            msg: "health check failed",
+            error: error.message 
+        });
+    }
 });
 
 // Routes
