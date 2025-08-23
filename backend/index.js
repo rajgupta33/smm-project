@@ -34,8 +34,6 @@ app.use(cors({
   optionsSuccessStatus: 200
 }));
 
-// Remove the conflicting allowCrossDomain middleware - it's not needed
-
 app.use(cookieParser());
 
 // Database connection middleware
@@ -49,7 +47,7 @@ app.use(async (req, res, next) => {
   }
 });
 
-app.use(bodyParser.json({ limit: '10mb' })); // Add size limit
+app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check route
@@ -73,8 +71,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-// Handle 404
-app.use('*', (req, res) => {
+// ✅ FIXED: Handle 404 without using wildcard '*'
+app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
