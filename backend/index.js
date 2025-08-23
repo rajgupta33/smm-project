@@ -3,48 +3,49 @@ const cors = require('cors');
 const cookieParser = require("cookie-parser");
 const bodyParser = require('body-parser');
 const connectDB = require('./utils/db');
-const validate = require('./middlewares/validate'); // Fixed typo: "middlewares"
+const validate = require('./middelwares/validate');
 
 const app = express();
 
-// Define allowed origins
+// Define allowed origins - include your backend domain
 const allowedOrigins = [
   'https://getfame.social', 
   'https://www.getfame.social',
-  'http://localhost:3000', // Add for local development
-  'http://localhost:5173'  // Add for Vite dev server
+  'https://backend.getfame.social', // Add your backend domain
+  'http://localhost:3000', // For development
+  'http://localhost:5173'  // For Vite dev server if using
 ];
 
 // Configure CORS properly
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, postman, etc.)
+    // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
     } else {
-      return callback(new Error('Not allowed by CORS'));
+      callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true, // Important for cookies
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true, // Important: allows cookies and credentials
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
+    'Origin',
+    'X-Requested-With', 
     'Content-Type', 
-    'Authorization', 
-    'X-Requested-With',
     'Accept',
-    'Origin'
-  ]
+    'Authorization',
+    'Cache-Control',
+    'X-CSRF-Token'
+  ],
+  exposedHeaders: ['Set-Cookie'],
+  optionsSuccessStatus: 200 // For legacy browser support
 }));
 
-// Remove the conflicting allowCrossDomain middleware entirely
-// app.use(allowCrossDomain); // DELETE THIS
+// Remove the conflicting allowCrossDomain middleware - it's not needed
 
-// Middleware setup in correct order
 app.use(cookieParser());
-app.use(bodyParser.json({ limit: '10mb' })); // Add size limit
-app.use(bodyParser.urlencoded({ extended: true }));
 
 // Database connection middleware
 app.use(async (req, res, next) => {
@@ -57,9 +58,12 @@ app.use(async (req, res, next) => {
   }
 });
 
+app.use(bodyParser.json({ limit: '10mb' })); // Add size limit
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+
 // Health check route
 app.get("/api/check", (req, res) => {
-  res.status(200).json({ msg: "all good" });
+    res.status(200).json({ msg: "all good" });
 });
 
 // Routes
@@ -72,10 +76,10 @@ app.use('/api/user', userRoutes);
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
-// Error handling middleware
+// Global error handler
 app.use((err, req, res, next) => {
-  console.error('Server error:', err);
-  res.status(500).json({ error: 'Internal server error' });
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something went wrong!' });
 });
 
 // Handle 404
