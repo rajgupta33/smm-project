@@ -18,10 +18,11 @@ const LoginPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (auth.isAuthenticated) {
+    // Only redirect if not loading and authenticated
+    if (!auth.isLoading && auth.isAuthenticated) {
       navigate('/home');
     }
-  }, [auth.isAuthenticated, navigate]);
+  }, [auth.isLoading, auth.isAuthenticated, navigate]);
 
 
   
@@ -91,6 +92,15 @@ const LoginPage = () => {
     }
   };
   
+
+  // Show loading spinner while checking authentication
+  if (auth.isLoading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">

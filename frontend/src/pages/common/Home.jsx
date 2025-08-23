@@ -11,12 +11,22 @@ export default function Home(){
     const navigate = useNavigate();
 
     useEffect(() => {
-        if (!auth.isAuthenticated) {
+        // Only redirect if not loading and not authenticated
+        if (!auth.isLoading && !auth.isAuthenticated) {
             navigate("/login");
             return;
         }
-    }, [auth.user, navigate]);
+    }, [auth.isLoading, auth.isAuthenticated, navigate]);
     
+    // Show loading spinner while checking authentication
+    if (auth.isLoading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-gray-100 font-inter antialiased flex items-center justify-center">
+                <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500"></div>
+            </div>
+        );
+    }
+
     return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-gray-100 font-inter antialiased">
     {/* Inline react-toastify CSS to resolve import issues in this environment */}
