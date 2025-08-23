@@ -8,6 +8,12 @@ const validate = require('./middelwares/validate')
 const app = express();
 
 
+const allowedOrigins = ['https://getfame.social', 'https://www.getfame.social'];
+
+app.use(cors({
+  origin: allowedOrigins
+}));
+
 app.use(cookieParser());
 
 
