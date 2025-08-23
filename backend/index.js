@@ -18,17 +18,8 @@ const allowedOrigins = [
 
 // Configure CORS properly
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true, // Important: allows cookies and credentials
+  origin: allowedOrigins,
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
     'Origin',
@@ -40,7 +31,7 @@ app.use(cors({
     'X-CSRF-Token'
   ],
   exposedHeaders: ['Set-Cookie'],
-  optionsSuccessStatus: 200 // For legacy browser support
+  optionsSuccessStatus: 200
 }));
 
 // Remove the conflicting allowCrossDomain middleware - it's not needed
