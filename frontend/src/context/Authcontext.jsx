@@ -11,7 +11,7 @@ export const AuthProvider = ({ children }) => {
             role: '',
             wallet: 0,
         },
-        isLoading: true, // Add loading state
+        isLoading: true, // Start with loading true
     });
 
     useEffect(() => {
@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
         const checkAuth = async () => {
             try {
                 const data = await authApi.me();
-                if (data.data.success) {
+                if (data.success && data.data.isAuthenticated) {
                     const res = data.data.user;
                     setAuth({
                         isAuthenticated: true,
