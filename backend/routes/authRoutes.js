@@ -5,5 +5,6 @@ const validate = require('../middelwares/validate')
 
 router.post('/login', authController.login);
 router.get('/me', validate, authController.getMe);
+router.post('/logout', authController.logout);
 
 module.exports = router;

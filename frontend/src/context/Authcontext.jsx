@@ -59,7 +59,16 @@ export const AuthProvider = ({ children }) => {
         });
     };
 
-    const logout = () => {
+    const logout = async () => {
+        try {
+            // Call the logout API to clear the server-side session
+            await authApi.logout();
+        } catch (error) {
+            console.error('Logout API error:', error);
+            // Continue with logout even if API call fails
+        }
+        
+        // Update local state
         setAuth({
             isAuthenticated: false,
             user: { id: '', role: '', wallet: 0 },

@@ -61,6 +61,24 @@ class AuthController {
             res.status(500).json({ error: 'Internal server error' });
         }
     }
+
+    async logout(req, res) {
+        const COOKIE_NAME = 'auth_token';
+        
+        try {
+            // Clear the authentication cookie
+            res.clearCookie(COOKIE_NAME, {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'none'
+            });
+            
+            res.status(200).json({ message: 'Logged out successfully' });
+        } catch (error) {
+            console.error('Logout error:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    }
 }
 
 module.exports = new AuthController();

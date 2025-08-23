@@ -63,6 +63,19 @@ export const authApi = {
       };
     }
   },
+  logout: async () => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/auth/logout`, {}, { withCredentials: true });
+      if (response.status === 200) {
+        return { success: true, message: response.data.message };
+      } else {
+        return { success: false, message: response.data.message || "Logout failed" };
+      }
+    } catch (error) {
+      console.error('API Error (logout):', error);
+      return { success: false, message: error.response?.data?.message || error.message };
+    }
+  },
 };
 export const serviceApi = {
   getServices: async () => {
