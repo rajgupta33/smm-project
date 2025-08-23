@@ -1,4 +1,4 @@
-# SMM (Social Media Marketing) Platform
+# SMM (Social Media Marketing) Platform 
 
 A full-stack web application for managing social media marketing services, orders, and transactions. This platform provides both admin and user interfaces for managing SMM services, placing orders, and tracking transactions.
 
