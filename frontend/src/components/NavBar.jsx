@@ -15,7 +15,7 @@ const NAV_ICONS = {
   IndianRupeeIcon,
 };
 
-const DEFAULT_BRAND = "My Website";
+const DEFAULT_BRAND = "Get Fame Agency";
 
 // Define default links for unauthenticated users
 const defaultLinks = [
