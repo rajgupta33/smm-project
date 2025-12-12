@@ -100,8 +100,10 @@ class UserController {
                     key: API_KEY,
                     action: 'services'
                 }));
+                
                 const externalServices = apiServicesResponse.data;
-
+                externalServices.forEach((service) => { service.service = service.service.toString(); });
+                
                 const selectedServiceExternal = externalServices.find(s => s.service === req.body.service);
 
                 if (!selectedServiceExternal) {
