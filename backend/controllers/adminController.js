@@ -290,6 +290,9 @@ class AdminController{
           key: API_KEY,
           action: 'services'
         }));
+        
+        const services = response.data;
+        services.forEach((service) => { service.service = service.service.toString(); });
     
         res.status(200).json({data:response.data})
       } catch (error) {
