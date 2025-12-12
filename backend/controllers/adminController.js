@@ -294,7 +294,7 @@ class AdminController{
         const services = response.data;
         services.forEach((service) => { service.service = service.service.toString(); });
     
-        res.status(200).json({data:response.data})
+        res.status(200).json({data:services});
       } catch (error) {
         res.status(400).json({msg: error});
       }
