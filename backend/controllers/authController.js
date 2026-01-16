@@ -10,7 +10,7 @@ class AuthController {
         const COOKIE_NAME = 'auth_token';
 
         const { userId, password } = req.body;
-        const userid = userId ? userId.toLowerCase() : '';
+        const userid = userId ? userId.trim().toLowerCase() : '';
 
         if (!userid || !password) {
             return res.status(400).json({ message: 'User ID and password required.' });

@@ -25,12 +25,12 @@ const LoginPage = () => {
   }, [auth.isLoading, auth.isAuthenticated, navigate]);
 
 
-  
-  
+
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!userId.trim()) {
       toast.error('User ID is required', {
         icon: <Lock className="text-red-500" />,
@@ -52,11 +52,11 @@ const LoginPage = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await authApi.login({userId,password})
+
+      const response = await authApi.login({ userId: userId.trim(), password })
 
       if (response.success) {
-        
+
         toast.success('Login successful!', {
           icon: <Lock className="text-green-500" />,
           theme: "dark",
@@ -65,7 +65,7 @@ const LoginPage = () => {
         });
         auth.login(response.data.userId, response.data.role, response.data.money);
         // Handle successful login
-      }else{
+      } else {
         toast.error('Invalid credentials', {
           icon: <Lock className="text-red-500" />,
           theme: "dark",
@@ -91,7 +91,7 @@ const LoginPage = () => {
       setLoading(false);
     }
   };
-  
+
 
   // Show loading spinner while checking authentication
   if (auth.isLoading) {
