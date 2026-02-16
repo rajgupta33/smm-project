@@ -11,9 +11,10 @@ const app = express();
 const allowedOrigins = [
   'https://getfame.social', 
   'https://www.getfame.social',
-  'https://backend.getfame.social', // Add your backend domain
-  'http://localhost:3000', // For development
-  'http://localhost:5173'  // For Vite dev server if using
+  'https://growth.getfame.social',
+  'https://backend.getfame.social',
+  'http://localhost:3000',
+  'http://localhost:5173'
 ];
 
 // Configure CORS properly
