@@ -101,40 +101,22 @@ class UserController {
             session = await mongoose.startSession();
             let orderId, status;
             await session.withTransaction(async () => {
-                const apiServicesResponse = await axios.post(API_URL, new URLSearchParams({
-                    key: API_KEY,
-                    action: 'services'
-                }));
-                
-                const externalServices = apiServicesResponse.data;
-                if (!Array.isArray(externalServices)) {
-                    const providerMessage = externalServices?.error || externalServices?.message || 'Unable to load provider services';
-                    throw new Error(providerMessage);
-                }
+                const { serviceId, service, providerServiceId, linkInput, quantity, rate, totalAmount } = req.body;
+                const link = linkInput;
+
                 const requestedServiceIds = [
-                    req.body.providerServiceId,
-                    req.body.service,
-                    req.body.serviceId,
+                    providerServiceId,
+                    service,
+                    serviceId,
                 ].map(normalizeProviderServiceId).filter(Boolean);
 
-                const selectedServiceExternal = externalServices.find((service) =>
-                    requestedServiceIds.includes(normalizeProviderServiceId(service.service))
-                );
-
-                if (!selectedServiceExternal) {
-                    throw new Error("Service not found");
+                if (requestedServiceIds.length === 0) {
+                    throw new Error("Service ID is required");
                 }
 
-                const providerServiceId = normalizeProviderServiceId(selectedServiceExternal.service);
-
-                if (req.body.rate < selectedServiceExternal.rate) {
-                    throw new Error("Service is under maintenance or rate is too low");
-                }
+                const uniqueProviderServiceIds = [...new Set(requestedServiceIds)];
 
                 const refillOption = req.body.refill ? "" : null;
-
-                const { serviceId, service, linkInput, quantity, rate, totalAmount } = req.body;
-                const link = linkInput;
 
                 const freshUser = await User.findOne(buildUserIdQuery(req.user.id)).session(session);
                 if (!freshUser || freshUser.money < totalAmount) {
@@ -146,19 +128,31 @@ class UserController {
                     { $inc: { money: -totalAmount } }
                 ).session(session);
 
-                const params = {
-                    key: API_KEY,
-                    action: 'add',
-                    service: providerServiceId,
-                    link: link,
-                    quantity: quantity,
-                };
+                let providerError = '';
+                let acceptedProviderServiceId = '';
 
-                const orderResponse = await axios.post(API_URL, null, { params });
-                orderId = orderResponse.data.order || null;
+                for (const candidateServiceId of uniqueProviderServiceIds) {
+                    const params = {
+                        key: API_KEY,
+                        action: 'add',
+                        service: candidateServiceId,
+                        link: link,
+                        quantity: quantity,
+                    };
+
+                    const orderResponse = await axios.post(API_URL, null, { params });
+                    orderId = orderResponse.data.order || null;
+
+                    if (orderId) {
+                        acceptedProviderServiceId = candidateServiceId;
+                        break;
+                    }
+
+                    providerError = orderResponse.data?.error || orderResponse.data?.message || providerError;
+                }
 
                 if (!orderId) {
-                    throw new Error("Order could not be placed. because order already present with this link");
+                    throw new Error(providerError || "Order could not be placed. Please check the provider service ID.");
                 }
 
                 const statusParams = {
@@ -174,7 +168,7 @@ class UserController {
                     lastStatus: status,
                     quantity,
                     rate,
-                    service: serviceId,
+                    service: serviceId || acceptedProviderServiceId,
                     user: freshUser._id,
                     start_count: statusResponse.data.start_count,
                     refill: refillOption
