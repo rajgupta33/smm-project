@@ -9,13 +9,16 @@ require('dotenv').config();
 const axios = require('axios');
 const API_URL = process.env.API_URL;
 const API_KEY = process.env.API_KEY;
+const { buildUserIdQuery, normalizeUserId } = require('../utils/userId');
 
 class AdminController {
 
     async createUser(req, res) {
         const { userId, password, role, services } = req.payload;
 
-        if (!userId || !password || !role) {
+        const normalizedUserId = normalizeUserId(userId);
+
+        if (!normalizedUserId || !password || !role) {
             return res.status(400).json({ error: 'userid, password, and role are required' });
         }
 
@@ -25,7 +28,7 @@ class AdminController {
         try {
             const hashedPassword = await bcrypt.hash(password, 10);
             const newUser = new User({
-                userId: userId.trim().toLowerCase(),
+                userId: normalizeUserId(userId),
                 password: hashedPassword,
                 role,
                 services
@@ -49,19 +52,24 @@ class AdminController {
         }
 
         try {
-            const curr = await User.findOne({ userId });
+            const userIdQuery = buildUserIdQuery(userId);
+            if (!userIdQuery) {
+                return res.status(400).json({ msg: "User ID is required" });
+            }
+
+            const curr = await User.findOne(userIdQuery);
             if (!curr) {
                 return res.status(404).json({ msg: "User not found" });
             }
             const user = await User.updateOne(
-                { userId },
+                { _id: curr._id },
                 { $set: { money: curr.money + amount } }
             );
             const session = await mongoose.startSession();
             session.startTransaction();
             try {
                 await User.updateOne(
-                    { userId },
+                    { _id: curr._id },
                     { $set: { money: curr.money + amount } },
                     { session }
                 );
@@ -93,7 +101,7 @@ class AdminController {
         }
 
         try {
-            const user = await User.findOne({ userId });
+            const user = await User.findOne(buildUserIdQuery(userId));
             if (!user) {
                 return res.status(404).json({ message: 'Invalid user.' });
             }
@@ -119,7 +127,7 @@ class AdminController {
         }
 
         try {
-            const user = await User.findOne({ userId });
+            const user = await User.findOne(buildUserIdQuery(userId));
             if (user) {
                 user.services.pull(serviceId);
                 await user.save();
@@ -156,7 +164,7 @@ class AdminController {
 
 
             const user = await User.findOneAndUpdate(
-                { userId },
+                buildUserIdQuery(userId),
                 { password: hashedPassword },
                 { new: true }
             );
@@ -177,8 +185,17 @@ class AdminController {
     async getUser(req, res) {
         try {
             const { userId } = req.payload;
+            const userIdQuery = buildUserIdQuery(userId);
 
-            const user = await User.findOne({ userId });
+            if (!userIdQuery) {
+                return res.status(400).json({ message: 'User ID is required' });
+            }
+
+            const user = await User.findOne(userIdQuery);
+
+            if (!user) {
+                return res.status(404).json({ message: 'User not found' });
+            }
 
             const orders = await Order
                 .find({ user: user._id })
@@ -195,9 +212,6 @@ class AdminController {
                 serviceId: { $in: user.services || [] }
             });
 
-            if (!user) {
-                return res.status(404).json({ message: 'User not found' });
-            }
             res.status(200).json({ userId, balance: user.money, orders, transactions, services });
         } catch (error) {
             res.status(500).json({ message: 'Server error' });

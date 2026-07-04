@@ -48,6 +48,9 @@ const ChangePasswordForm = () => {
       // Call the mock axios API
       const response = await serviceApi.changeUserPassword({ userId, newPassword });
 
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to change password');
+      }
       
       // Show success toast
       toast.success("password change successful", {
@@ -67,7 +70,7 @@ const ChangePasswordForm = () => {
           className: "bg-purple-950 text-purple-50 border-purple-700",
         });
       } else {
-        toast.error('Failed to change password', {
+        toast.error(error.message || 'Failed to change password', {
           theme: "dark",
           className: "bg-purple-950 text-purple-50 border-purple-700",
         });

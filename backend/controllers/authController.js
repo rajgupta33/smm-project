@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { buildUserIdQuery } = require('../utils/userId');
 require('dotenv').config();
 
 class AuthController {
@@ -10,14 +11,14 @@ class AuthController {
         const COOKIE_NAME = 'auth_token';
 
         const { userId, password } = req.body;
-        const userid = userId ? userId.trim().toLowerCase() : '';
+        const userIdQuery = buildUserIdQuery(userId);
 
-        if (!userid || !password) {
+        if (!userIdQuery || !password) {
             return res.status(400).json({ message: 'User ID and password required.' });
         }
 
         try {
-            const user = await User.findOne({ userId:userid });
+            const user = await User.findOne(userIdQuery);
 
             if (!user) {
                 return res.status(401).json({ message: 'Invalid credentials.' });
@@ -38,7 +39,7 @@ class AuthController {
                 maxAge: 60 * 60 * 1000
             });
 
-            res.status(200).json({ userId, role: user.role, money: user.money });
+            res.status(200).json({ userId: user.userId, role: user.role, money: user.money });
         } catch (err) {
             console.error('Login error:', err);
             res.status(500).json({ message: 'Server error.' });
@@ -47,7 +48,12 @@ class AuthController {
 
     async getMe(req, res) {
         try {
-            const user = await User.findOne({ userId: req.user.id });
+            const userIdQuery = buildUserIdQuery(req.user.id);
+            if (!userIdQuery) {
+                return res.status(401).json({ error: 'Invalid auth token' });
+            }
+
+            const user = await User.findOne(userIdQuery);
             if (!user) {
                 return res.status(404).json({ error: 'User not found' });
             }

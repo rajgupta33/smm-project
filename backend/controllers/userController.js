@@ -9,6 +9,7 @@ const { connectToDatabase } = require('../utils/serverlessDb');
 const API_URL=process.env.API_URL;
 const API_KEY =process.env.API_KEY;
 const bcrypt = require('bcrypt');
+const { buildUserIdQuery } = require('../utils/userId');
 class UserController {
 
     async changePassword(req, res) {
@@ -17,7 +18,7 @@ class UserController {
             const { currentPassword, newPassword } = req.body;
             const userId = req.user.id;
 
-            const userRecord = await User.findOne({ userId });
+            const userRecord = await User.findOne(buildUserIdQuery(userId));
             if (!userRecord) {
                 return res.status(404).json({ msg: "User not found" });
             }
@@ -30,7 +31,7 @@ class UserController {
             const hashedPassword = await bcrypt.hash(newPassword, 10);
 
             await User.updateOne(
-                { userId },
+                { _id: userRecord._id },
                 { $set: { password: hashedPassword } }
             );
 
@@ -43,7 +44,7 @@ class UserController {
 
     async getUserService(req, res) {
         try {
-            const user = await User.findOne({ userId: req.user.id });
+            const user = await User.findOne(buildUserIdQuery(req.user.id));
 
             const userServiceIds = user?.services || [];
             
@@ -67,7 +68,7 @@ class UserController {
             const limit = parseInt(req.query['page[limit]'] || '10');
             const skip = (page - 1) * limit;
 
-            const user = await User.findOne({ userId });
+            const user = await User.findOne(buildUserIdQuery(userId));
 
             if (!user) {
                 return res.status(404).json({ success: false, message: 'User not found' });
@@ -119,13 +120,13 @@ class UserController {
                 const { serviceId, service, linkInput, quantity, rate, totalAmount } = req.body;
                 const link = linkInput;
 
-                const freshUser = await User.findOne({ userId: req.user.id }).session(session);
+                const freshUser = await User.findOne(buildUserIdQuery(req.user.id)).session(session);
                 if (!freshUser || freshUser.money < totalAmount) {
                     throw new Error("Insufficient balance");
                 }
 
                 await User.updateOne(
-                    { userId: req.user.id },
+                    { _id: freshUser._id },
                     { $inc: { money: -totalAmount } }
                 ).session(session);
 
@@ -189,7 +190,7 @@ class UserController {
             const limit = parseInt(req.query['page[limit]'] || '10');
             const skip = (page - 1) * limit;
 
-            const user = await User.findOne({ userId });
+            const user = await User.findOne(buildUserIdQuery(userId));
 
             if (!user) {
                 return res.status(404).json({ success: false, message: 'User not found' });
