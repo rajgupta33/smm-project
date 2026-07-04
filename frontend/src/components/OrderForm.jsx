@@ -125,8 +125,9 @@ function OrderForm() {
     // 'notes' is intentionally excluded from the payload, 'rate' is now included.
     const orderData = {
       linkInput: formData.linkInput,
-      serviceId: formData.serviceId, // Your 'Service ID' (e.g., '1', '2')
-      service: selectedProduct.service, // The 'User Defined Unique ID' (e.g., 'SMM-IG-F-STD-001')
+      serviceId: formData.serviceId,
+      providerServiceId: selectedProduct.service,
+      service: selectedProduct.service,
       quantity: formData.quantity,
       rate: parseFloat(selectedProduct.rate), // Include the rate from selectedProduct
       totalAmount: formData.totalAmount,

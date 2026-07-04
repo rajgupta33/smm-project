@@ -10,6 +10,9 @@ const API_URL=process.env.API_URL;
 const API_KEY =process.env.API_KEY;
 const bcrypt = require('bcrypt');
 const { buildUserIdQuery } = require('../utils/userId');
+
+const normalizeProviderServiceId = (serviceId) => String(serviceId || '').trim();
+
 class UserController {
 
     async changePassword(req, res) {
@@ -91,10 +94,11 @@ class UserController {
     }
 
     async placeOrder(req, res) {
+        let session;
 
         try {
             await connectToDatabase();
-            const session = await mongoose.startSession();
+            session = await mongoose.startSession();
             let orderId, status;
             await session.withTransaction(async () => {
                 const apiServicesResponse = await axios.post(API_URL, new URLSearchParams({
@@ -103,13 +107,25 @@ class UserController {
                 }));
                 
                 const externalServices = apiServicesResponse.data;
-                externalServices.forEach((service) => { service.service = service.service.toString(); });
-                
-                const selectedServiceExternal = externalServices.find(s => s.service === req.body.service);
+                if (!Array.isArray(externalServices)) {
+                    const providerMessage = externalServices?.error || externalServices?.message || 'Unable to load provider services';
+                    throw new Error(providerMessage);
+                }
+                const requestedServiceIds = [
+                    req.body.providerServiceId,
+                    req.body.service,
+                    req.body.serviceId,
+                ].map(normalizeProviderServiceId).filter(Boolean);
+
+                const selectedServiceExternal = externalServices.find((service) =>
+                    requestedServiceIds.includes(normalizeProviderServiceId(service.service))
+                );
 
                 if (!selectedServiceExternal) {
                     throw new Error("Service not found");
                 }
+
+                const providerServiceId = normalizeProviderServiceId(selectedServiceExternal.service);
 
                 if (req.body.rate < selectedServiceExternal.rate) {
                     throw new Error("Service is under maintenance or rate is too low");
@@ -133,7 +149,7 @@ class UserController {
                 const params = {
                     key: API_KEY,
                     action: 'add',
-                    service: service,
+                    service: providerServiceId,
                     link: link,
                     quantity: quantity,
                 };
@@ -176,9 +192,11 @@ class UserController {
             res.status(200).json({ msg: "Order placed successfully", orderId: orderId, status: status });
         } catch (error) {
             console.error('Error placing order:', error);
-            res.status(500).json({ msg: "Failed to place order", error: error.message });
+            res.status(400).json({ msg: "Failed to place order", error: error.message });
         } finally {
-            await session.endSession();
+            if (session) {
+                await session.endSession();
+            }
         }
     }
 
