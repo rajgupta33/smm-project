@@ -16,7 +16,7 @@ The frontend reads `VITE_API_BASE_URL` and otherwise uses the local development 
 
 Five failed attempts for the same IP/user key in 15 minutes are allowed; the sixth receives HTTP 429 with `Retry-After`. Successful authentication clears the counter. Success, failure, and rate-limit outcomes are written to `AuditLog` without passwords.
 
-The limiter is process-local. Multi-instance production deployment should replace it with a shared Redis-backed limiter in the infrastructure phase.
+The counter is shared across every API instance and serverless invocation in the same Redis deployment (`REDIS_URL`, namespaced under `BULLMQ_PREFIX`), so the limit holds under multi-instance and serverless deployment rather than resetting per process or per cold start. The limiter fails open: if Redis is unreachable, the login attempt is allowed rather than blocking all authentication on an unrelated infrastructure outage, and the attempt is still written to `AuditLog` either way.
 
 ## Response policy
 

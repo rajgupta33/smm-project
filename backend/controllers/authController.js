@@ -25,7 +25,7 @@ class AuthController {
             return res.status(400).json({ message: 'User ID and password required.' });
         }
 
-        const limit = checkLoginLimit(req, userId);
+        const limit = await checkLoginLimit(req, userId);
         if (!limit.allowed) {
             await auditLogin(req, 'AUTH_LOGIN_RATE_LIMITED', userId);
             res.set('Retry-After', String(Math.ceil(limit.retryAfterMs / 1000)));
@@ -36,19 +36,19 @@ class AuthController {
             const user = await User.findOne(userIdQuery);
 
             if (!user) {
-                recordLoginFailure(limit.key);
+                await recordLoginFailure(limit.key);
                 await auditLogin(req, 'AUTH_LOGIN_FAILED', userId);
                 return res.status(401).json({ message: 'Invalid credentials.' });
             }
 
             const passwordMatch = await bcrypt.compare(password, user.password);
             if (!passwordMatch) {
-                recordLoginFailure(limit.key);
+                await recordLoginFailure(limit.key);
                 await auditLogin(req, 'AUTH_LOGIN_FAILED', userId, user._id);
                 return res.status(401).json({ message: 'Invalid credentials.' });
             }
 
-            clearLoginFailures(limit.key);
+            await clearLoginFailures(limit.key);
 
             const tokenPayload = { sub: String(user._id), id: user.userId };
             const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '1h' });

@@ -1,32 +1,67 @@
 const { randomUUID } = require('crypto');
 const AuditLog = require('../models/AuditLog');
+const { getProducerConnection } = require('../queues/queueRegistry');
+const { getRuntimeConfig } = require('../config/runtimeConfig');
 
-const attempts = new Map();
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 
-function keyFor(req, userId) {
-    return `${req.ip || req.socket?.remoteAddress || 'unknown'}:${String(userId || '').trim().toLowerCase()}`;
+function dependencies(overrides = {}) {
+    return {
+        redis: overrides.redis || getProducerConnection(),
+        keyPrefix: overrides.keyPrefix || `${getRuntimeConfig().bullmqPrefix}:login-attempts:`,
+    };
 }
 
-function checkLoginLimit(req, userId, now = Date.now()) {
-    const key = keyFor(req, userId);
-    const current = attempts.get(key);
-    if (!current || current.resetAt <= now) {
-        attempts.set(key, { count: 0, resetAt: now + WINDOW_MS });
+function keyFor(req, userId, keyPrefix) {
+    const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+    const normalizedUserId = String(userId || '').trim().toLowerCase();
+    return `${keyPrefix}${ip}:${normalizedUserId}`;
+}
+
+/**
+ * Checks whether a login attempt is allowed under the shared, Redis-backed
+ * fixed-window limiter. Every API instance and every serverless invocation
+ * reads the same counter, so the limit holds regardless of how many
+ * processes are handling requests.
+ *
+ * Fails open: if Redis is unreachable, the attempt is allowed rather than
+ * blocking all logins on an infrastructure outage unrelated to credentials.
+ * Failed attempts are always written to the audit log regardless of Redis
+ * availability, so a Redis outage does not erase the security trail either.
+ */
+async function checkLoginLimit(req, userId, overrides = {}) {
+    const deps = dependencies(overrides);
+    const key = keyFor(req, userId, deps.keyPrefix);
+    try {
+        const count = Number(await deps.redis.get(key)) || 0;
+        if (count < MAX_ATTEMPTS) return { allowed: true, key };
+        const ttlMs = await deps.redis.pttl(key);
+        return { allowed: false, key, retryAfterMs: ttlMs > 0 ? ttlMs : WINDOW_MS };
+    } catch (error) {
+        console.error('Login rate limiter unavailable, allowing attempt:', error.message);
         return { allowed: true, key };
     }
-    return { allowed: current.count < MAX_ATTEMPTS, key, retryAfterMs: current.resetAt - now };
 }
 
-function recordLoginFailure(key) {
-    const current = attempts.get(key) || { count: 0, resetAt: Date.now() + WINDOW_MS };
-    current.count += 1;
-    attempts.set(key, current);
+async function recordLoginFailure(key, overrides = {}) {
+    const deps = dependencies(overrides);
+    try {
+        const count = await deps.redis.incr(key);
+        if (count === 1) await deps.redis.pexpire(key, WINDOW_MS);
+    } catch (error) {
+        console.error('Failed to record login failure in rate limiter:', error.message);
+    }
 }
 
-function clearLoginFailures(key) { attempts.delete(key); }
-function resetLoginAttempts() { attempts.clear(); }
+async function clearLoginFailures(key, overrides = {}) {
+    const deps = dependencies(overrides);
+    try {
+        await deps.redis.del(key);
+    } catch (error) {
+        console.error('Failed to clear login failures in rate limiter:', error.message);
+    }
+}
 
 async function auditLogin(req, action, userId, actorId = null) {
     try {
@@ -52,5 +87,4 @@ module.exports = {
     checkLoginLimit,
     clearLoginFailures,
     recordLoginFailure,
-    resetLoginAttempts,
 };

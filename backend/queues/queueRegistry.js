@@ -95,5 +95,6 @@ module.exports = {
     checkRedisConnection,
     closeProducerQueues,
     createWorkerConnection,
+    getProducerConnection,
     getQueue,
 };
