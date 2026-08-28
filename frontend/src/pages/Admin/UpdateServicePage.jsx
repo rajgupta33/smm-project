@@ -195,7 +195,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
     } finally {
       setLoading(false); // Stop loading indicator
     }
-  }, [formData, selectedServiceId, allServices, customServices, setAllServices, setCustomServices, setPageMode]); // Dependencies for handleSubmit
+  }, [formData, selectedServiceId, allServices, setAllServices, setCustomServices, setPageMode]); // Dependencies for handleSubmit
 
   // Handler to clear the form fields and reset selected service
   const handleClearForm = useCallback(() => {

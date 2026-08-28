@@ -6,44 +6,39 @@
     "type": "git",
     "url": "https://github.com/yourusername/smm-project.git"
   },
-  "keywords": [
-    "smm",
-    "social-media-marketing",
-    "api",
-    "nodejs",
-    "express",
-    "mongodb",
-    "jwt",
-    "authentication"
-  ],
-  "author": "Your Name <your.email@example.com>",
-  "license": "MIT",
-  "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "worker": "node worker.js",
+    "worker:dev": "nodemon worker.js",
+    "lint": "eslint .",
+    "migrate:catalogue": "node scripts/mapLegacyServicesToCatalogue.js",
+    "migrate:job-dispatch": "node scripts/backfillJobDispatches.js",
+    "migrate:drip-feed": "node scripts/migrateDripFeedState.js",
+    "migrate:provider-sync-apply": "node scripts/ensureProviderSyncApplicationIndexes.js",
+    "migrate:order-reconciliation": "node scripts/ensureOrderReconciliationIndexes.js",
+    "migrate:wallet-minor": "node scripts/backfillWalletBalanceMinor.js",
+    "test": "node --test test/*.test.js"
+  },
   "dependencies": {
     "axios": "^1.9.0",
     "bcrypt": "^6.0.0",
+    "bullmq": "^6.3.1",
     "cookie": "^1.0.2",
     "cookie-parser": "^1.4.7",
-    "cookies": "^0.9.1",
     "cors": "^2.8.5",
-    "crypto": "^1.0.1",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
-    "json-web-token": "^3.2.0",
+    "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
-    "mongodb": "^6.17.0",
-    "mongoose": "^8.15.0",
-    "nanoid": "^5.1.5",
-    "require": "^2.4.20",
-    "uuidv4": "^6.2.13",
-    "zod": "^3.25.28"
+    "mongoose": "^8.15.0"
   },
-  "description": ""
+  "description": "",
+  "devDependencies": {
+    "eslint": "^9.25.0",
+    "globals": "^16.0.0"
+  }
 }

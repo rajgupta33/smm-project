@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { serviceApi } from '../service/api'; 
 import { RotateCcw, Search, AlertCircle, Check, Info, IndianRupee, RefreshCcw } from 'lucide-react';
 
 const OrderCard = ({ order, onOrderUpdate }) => {
+  const navigate = useNavigate();
   const [refillStatusLoading, setRefillStatusLoading] = useState(false);
   const [currentRefillStatus, setCurrentRefillStatus] = useState(null); 
   
@@ -11,12 +13,17 @@ const OrderCard = ({ order, onOrderUpdate }) => {
   const [checkingOrderStatusLoading, setCheckingOrderStatusLoading] = useState(false);
   
   const [lastCheckedOrderStatusDetails, setLastCheckedOrderStatusDetails] = useState(null); 
+  const canContactProvider = !order.lifecycleStatus || order.lifecycleStatus === 'SUBMITTED';
+  const activeRefill = order.refillRequest && [
+    'REQUESTED', 'VALIDATING', 'SENT_TO_PROVIDER', 'IN_PROGRESS', 'NEEDS_SUPPORT',
+  ].includes(order.refillRequest.status);
 
 
   
   const handleRequestRefill = async () => {
     
-    if (order.refill !== "") {
+    if (order.refill === null || activeRefill ||
+        (!order.refillRequest && typeof order.refill === 'string' && order.refill.trim())) {
       toast.warn("Refill is not available to be requested for this order.", { theme: "dark" });
       return;
     }
@@ -29,7 +36,7 @@ const OrderCard = ({ order, onOrderUpdate }) => {
 
       if (response.success) {
         toast.update(loadingToastId, {
-          render: `Refill requested successfully! Refill ID: ${response.data.refill || 'N/A'}`,
+          render: `Refill queued safely. Request: ${response.data.id}`,
           type: "success",
           isLoading: false,
           autoClose: 5000,
@@ -63,11 +70,11 @@ const OrderCard = ({ order, onOrderUpdate }) => {
   
   const handleCheckRefillStatus = async () => {
     
-    const refillIdToCheck = order.refill;
+    const refillIdToCheck = order.refillRequest?.id;
 
     
     if (typeof refillIdToCheck !== 'string' || refillIdToCheck.trim() === '') {
-      toast.info("No active refill request ID available to check status.", { theme: "dark" });
+      toast.info("No refill request is available to check.", { theme: "dark" });
       return;
     }
 
@@ -81,7 +88,7 @@ const OrderCard = ({ order, onOrderUpdate }) => {
       const response = await serviceApi.checkRefillStatus(refillIdToCheck); 
 
       if (response.success) {
-        const status = response.data.status; 
+        const status = response.data.status;
         setCurrentRefillStatus(status); 
 
         
@@ -214,6 +221,17 @@ const OrderCard = ({ order, onOrderUpdate }) => {
         {lastCheckedOrderStatusDetails?.start_count || order.start_count} 
       </p>
 
+      {order.lifecycleStatus === 'RECONCILIATION_REQUIRED' && (
+        <div className="rounded-md border border-amber-500/60 bg-amber-950/40 p-3 text-sm text-amber-200">
+          Provider confirmation is uncertain. This order is held for support reconciliation and will not be submitted again automatically.
+        </div>
+      )}
+      {order.lifecycleStatus === 'PROVIDER_REJECTED' && (
+        <div className="rounded-md border border-red-500/60 bg-red-950/40 p-3 text-sm text-red-200">
+          The provider rejected this order and the wallet debit was refunded.
+        </div>
+      )}
+
       {/* Display additional order status details ONLY if they have been explicitly fetched */}
       {lastCheckedOrderStatusDetails && (
         <div className="bg-gray-700 p-3 rounded-md text-sm space-y-1 border border-gray-600">
@@ -225,7 +243,9 @@ const OrderCard = ({ order, onOrderUpdate }) => {
 
       <p>
         <span className="font-semibold">Refill:</span>{' '}
-        {order.refill === null ? (
+        {order.refillRequest ? (
+          `${order.refillRequest.status} (request ${order.refillRequest.id})`
+        ) : order.refill === null ? (
           'Not Available'
         ) : order.refill === "" ? (
           'Available (click to request)'
@@ -235,8 +255,15 @@ const OrderCard = ({ order, onOrderUpdate }) => {
       </p>
 
       <div className="flex flex-col gap-2"> {/* Container for buttons */}
+        <button
+          onClick={() => navigate(`/orders/${order.orderId || order.localOrderId}`)}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Info size={16} className="mr-2" />
+          View Timeline & Details
+        </button>
         {/* Conditional Refill Button: Show if order.refill is exactly an empty string "" */}
-        {order.refill !== null && (
+        {canContactProvider && order.refill !== null && !activeRefill && (
           <button
             onClick={handleRequestRefill}
             disabled={refillStatusLoading || checkingOrderStatusLoading} // Disable if any other operation is loading
@@ -248,7 +275,7 @@ const OrderCard = ({ order, onOrderUpdate }) => {
         )}
 
         {/* Conditional Check Refill Status Button: Show if order.refill is a non-empty string (refillId) */}
-        {typeof order.refill === 'string' && order.refill.trim() !== '' && (
+        {canContactProvider && order.refillRequest && (
           <div className="mt-1"> {/* Use mt-1 for a smaller gap if both buttons are present */}
             <button
               onClick={handleCheckRefillStatus}
@@ -265,7 +292,7 @@ const OrderCard = ({ order, onOrderUpdate }) => {
         )}
 
         {/* Check Main Order Status Button */}
-        {order.lastStatus !== 'Completed' && (<div className="mt-1">
+        {canContactProvider && order.lastStatus !== 'Completed' && (<div className="mt-1">
           <button
             onClick={handleCheckOrderStatus}
             disabled={checkingOrderStatusLoading || refillStatusLoading} // Disable if any other operation is loading

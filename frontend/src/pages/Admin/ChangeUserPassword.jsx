@@ -1,8 +1,7 @@
 import ResponsiveNavbar from '../../components/NavBar'
 import ChangePasswordForm from '../../components/ChangePassword'
-import { toast, ToastContainer } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { serviceApi } from '../../service/api';
 export default function ChangeUserPassword(){
     return (
     // Set a dark background and text color for the entire app

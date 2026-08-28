@@ -1,107 +1,125 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
-const cookieParser = require("cookie-parser");
-const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser');
 const { connectToDatabase, disconnectFromDatabase } = require('./utils/serverlessDb');
-const validate = require('./middelwares/validate');
+const { authenticate, getJwtSecret, requireAdmin } = require('./middelwares/auth');
+const { getRuntimeConfig } = require('./config/runtimeConfig');
+const { csrfProtection } = require('./middelwares/csrf');
+const { closeProducerQueues } = require('./queues/queueRegistry');
 
-const app = express();
+function createApp({ connect = connectToDatabase } = {}) {
+  getJwtSecret();
+  const runtimeConfig = getRuntimeConfig();
 
-// Define allowed origins - include your backend domain
-const allowedOrigins = [
-  'https://getfame.social', 
-  'https://www.getfame.social',
-  'https://growth.getfame.social',
-  'https://backend.getfame.social',
-  'http://localhost:3000',
-  'http://localhost:5173'
-];
+  const app = express();
+  app.locals.runtimeConfig = runtimeConfig;
+  app.set('trust proxy', runtimeConfig.trustProxy);
 
-// Configure CORS properly
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: [
-    'Origin',
-    'X-Requested-With', 
-    'Content-Type', 
-    'Accept',
-    'Authorization',
-    'Cache-Control',
-    'X-CSRF-Token'
-  ],
-  exposedHeaders: ['Set-Cookie'],
-  optionsSuccessStatus: 200
-}));
+  app.use(cors({
+    origin(origin, callback) {
+      if (!origin || runtimeConfig.allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error('Origin is not allowed'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: [
+      'Origin',
+      'X-Requested-With',
+      'Content-Type',
+      'Accept',
+      'Authorization',
+      'Cache-Control',
+      'X-CSRF-Token',
+      'Idempotency-Key',
+      'X-Request-Id'
+    ],
+    exposedHeaders: ['Set-Cookie'],
+    optionsSuccessStatus: 200
+  }));
 
-app.use(cookieParser());
+  app.use(cookieParser());
 
-// Database connection middleware
-app.use(async (req, res, next) => {
-  try {
-    await connectToDatabase();
-    next();
-  } catch (err) {
-    console.error('Database connection failed:', err);
-    res.status(500).json({ error: "Database connection failed" });
-  }
-});
+  app.use(async (req, res, next) => {
+    try {
+      await connect();
+      next();
+    } catch (error) {
+      console.error('Database connection failed:', error);
+      res.status(500).json({ error: 'Database connection failed' });
+    }
+  });
 
-// Graceful shutdown handling
+  // Cashfree signatures cover the exact request bytes, so this route must run
+  // before any JSON body parser. Authentication is the verified HMAC signature.
+  const paymentController = require('./controllers/paymentController');
+  app.post(
+    '/api/webhooks/cashfree',
+    express.raw({ type: 'application/json', limit: '1mb' }),
+    paymentController.cashfreeWebhook
+  );
+
+  app.use(express.json({ limit: '1mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+  app.get('/api/check', (req, res) => {
+    try {
+      const { getConnectionStatus } = require('./utils/serverlessDb');
+      res.status(200).json({
+        msg: 'all good',
+        timestamp: new Date().toISOString(),
+        database: getConnectionStatus()
+      });
+    } catch (error) {
+      res.status(500).json({
+        msg: 'health check failed',
+        error: error.message
+      });
+    }
+  });
+
+  const adminRoutes = require('./routes/adminRoutes');
+  app.use('/api/admin', authenticate, requireAdmin, csrfProtection, adminRoutes);
+
+  const userRoutes = require('./routes/userRoutes');
+  app.use('/api/user', authenticate, csrfProtection, userRoutes);
+
+  const paymentRoutes = require('./routes/paymentRoutes');
+  app.use('/api/payments', authenticate, csrfProtection, paymentRoutes);
+
+  const authRoutes = require('./routes/authRoutes');
+  app.use('/api/auth', authRoutes);
+
+  app.use((error, req, res, next) => {
+    void req;
+    void next;
+    console.error(error.stack);
+    res.status(500).json({ error: 'Something went wrong!' });
+  });
+
+  app.use((req, res) => {
+    res.status(404).json({ error: 'Route not found' });
+  });
+
+  return app;
+}
+
 process.on('SIGINT', async () => {
   console.log('Received SIGINT. Performing graceful shutdown...');
+  await closeProducerQueues();
   await disconnectFromDatabase();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   console.log('Received SIGTERM. Performing graceful shutdown...');
+  await closeProducerQueues();
   await disconnectFromDatabase();
   process.exit(0);
 });
 
-app.use(bodyParser.json({ limit: '10mb' }));
-app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
-
-// Health check route
-app.get("/api/check", async (req, res) => {
-    try {
-        const { getConnectionStatus } = require('./utils/serverlessDb');
-        const dbStatus = getConnectionStatus();
-        
-        res.status(200).json({ 
-            msg: "all good",
-            timestamp: new Date().toISOString(),
-            database: dbStatus
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            msg: "health check failed",
-            error: error.message 
-        });
-    }
-});
-
-// Routes
-const adminRoutes = require('./routes/adminRoutes');
-app.use("/api/admin", validate, adminRoutes);
-
-const userRoutes = require('./routes/userRoutes');
-app.use('/api/user', userRoutes);
-
-const authRoutes = require('./routes/authRoutes');
-app.use('/api/auth', authRoutes);
-
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
-});
-
-// ✅ FIXED: Handle 404 without using wildcard '*'
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
+const app = createApp();
 
 module.exports = app;
+module.exports.createApp = createApp;

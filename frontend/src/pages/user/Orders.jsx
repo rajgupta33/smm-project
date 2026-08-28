@@ -20,7 +20,7 @@ export default function Orders() {
     setLoading(true);
     setError(null);
     try {
-      const response = await serviceApi.getOrders({ page, limit });
+      const response = await serviceApi.getOrders(page, limit);
       const fetchedOrders = response.data.data || response.data; // Adjust based on your actual API response structure
 
       if (Array.isArray(fetchedOrders)) {
@@ -207,7 +207,7 @@ export default function Orders() {
         {!loading && !error && orders.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 justify-items-center animate-slideInDown">
             {orders.map((order) => (
-              <OrderCard key={order.orderId} order={order} onOrderUpdate={handleOrderUpdate} />
+              <OrderCard key={order._id || order.orderId} order={order} onOrderUpdate={handleOrderUpdate} />
             ))}
           </div>
         )}

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useState, useEffect } from 'react';
 import { authApi } from '../service/api';
 
 const AuthContext = createContext();
@@ -14,42 +14,30 @@ export const AuthProvider = ({ children }) => {
         isLoading: true, // Start with loading true
     });
 
-    useEffect(() => {
-        // Check if user is already authenticated (e.g., from localStorage/sessionStorage)
-        const checkAuth = async () => {
-            try {
-                const data = await authApi.me();
-                if (data.success && data.data.isAuthenticated) {
-                    const res = data.data.user;
-                    setAuth({
-                        isAuthenticated: true,
-                        user: {
-                            id: res.id,
-                            role: res.role,
-                            wallet: res.wallet,
-                        },
-                        isLoading: false,
-                    });
-                } else {
-                    setAuth({
-                        isAuthenticated: false,
-                        user: { id: '', role: '', wallet: 0 },
-                        isLoading: false,
-                    });
-                }
-            } catch (error) {
-                // Don't redirect on API failure, just set as not authenticated
-                console.log('Auth check failed:', error);
+    const refreshAuth = useCallback(async () => {
+        try {
+            const data = await authApi.me();
+            if (data.success && data.data.isAuthenticated) {
+                const res = data.data.user;
                 setAuth({
-                    isAuthenticated: false,
-                    user: { id: '', role: '', wallet: 0 },
+                    isAuthenticated: true,
+                    user: { id: res.id, role: res.role, wallet: res.wallet },
                     isLoading: false,
                 });
+                return true;
             }
-        };
+        } catch (error) {
+            console.log('Auth check failed:', error);
+        }
+        setAuth({
+            isAuthenticated: false,
+            user: { id: '', role: '', wallet: 0 },
+            isLoading: false,
+        });
+        return false;
+    }, []);
 
-        checkAuth();
-    }, []); // Empty dependency array - only run once on mount
+    useEffect(() => { refreshAuth(); }, [refreshAuth]);
 
     const login = (id, role, wallet) => {
         setAuth({
@@ -77,12 +65,13 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ ...auth, login, logout }}>
+        <AuthContext.Provider value={{ ...auth, login, logout, refreshAuth }}>
             {children}
         </AuthContext.Provider>
     );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (!context) {

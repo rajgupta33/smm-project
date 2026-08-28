@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, Mail, Menu, X, ListOrderedIcon, LogOutIcon, IndianRupeeIcon } from 'lucide-react';
+import { Home, User, Mail, Menu, X, ListOrderedIcon, LogOutIcon, IndianRupeeIcon, Settings, RotateCcw, MessageSquare, Network, ShieldAlert } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom'; // Import Link and useNavigate from react-router-dom
 import { useAuth } from '../context/Authcontext';
 
@@ -13,6 +13,11 @@ const NAV_ICONS = {
   ListOrderedIcon,
   LogOutIcon,
   IndianRupeeIcon,
+  Settings,
+  RotateCcw,
+  MessageSquare,
+  Network,
+  ShieldAlert,
 };
 
 const DEFAULT_BRAND = "Get Fame Agency";
@@ -30,26 +35,34 @@ export default function ResponsiveNavbar() {
   const [links, setLinks] = useState(defaultLinks);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const auth = useAuth();
+  const role = auth.user?.role;
   const navigate = useNavigate();
   
 
   useEffect(() => {
     // Ensure auth.user and auth.user.role exist before accessing
-    if (auth && auth.user && auth.user.role) {
-      if (auth.user.role === 'user') {
+    if (role) {
+      if (role === 'user') {
         setLinks([
           { name: 'Home', href: '/home', icon: 'Home' },
           { name: 'Payments', href: '/payments', icon: 'Mail' },
           { name: 'Orders', href: '/orders', icon: 'ListOrderedIcon' },
           { name: 'Profile', href: '/profile', icon: 'User'},
+          { name: 'Support', href: '/support', icon: 'MessageSquare'},
         ]);
-      } else if (auth.user.role === 'admin') {
+      } else if (role === 'admin') {
         setLinks([
           { name: 'Home', href: '/home', icon: 'Home' },
           { name: 'Add Payment', href: '/addPayment', icon: 'Mail' },
           { name: 'Services', href: '/services', icon: 'User' },
           { name: 'Change Password', href: '/changeUserPassword', icon: 'User' },
           { name: 'Dashboard', href: '/userDashboard', icon: 'User' },
+          { name: 'Pricing', href: '/pricing', icon: 'Settings' },
+          { name: 'Payments', href: '/adminPayments', icon: 'IndianRupeeIcon' },
+          { name: 'Refills', href: '/adminRefills', icon: 'RotateCcw' },
+          { name: 'Tickets', href: '/adminTickets', icon: 'MessageSquare' },
+          { name: 'Providers', href: '/adminProviders', icon: 'Network' },
+          { name: 'Reconciliation', href: '/adminReconciliation', icon: 'ShieldAlert' },
         ]);
       } else {
         // Fallback for roles not explicitly handled or initially loading
@@ -59,7 +72,7 @@ export default function ResponsiveNavbar() {
       // If auth.user or auth.user.role is not available (e.g., initial load, not authenticated)
       setLinks(defaultLinks);
     }
-  }, [auth.user?.role]); // Use optional chaining to safely access auth.user.role
+  }, [role]);
 
 
   

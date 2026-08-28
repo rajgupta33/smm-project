@@ -15,7 +15,7 @@ function ServiceManagerApp() {
   const [allServices, setAllServices] = useState([]);
   const [customServices, setCustomServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(false);
-  const [fetchError, setFetchError] = useState(null);
+  const [, setFetchError] = useState(null);
 
   // Initial fetch for all services (used by create and update for validation/duplication)
   useEffect(() => {

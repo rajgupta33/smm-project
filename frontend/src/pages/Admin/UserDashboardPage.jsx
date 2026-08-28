@@ -17,14 +17,7 @@ const UserDashboardPage = () => {
     const [error, setError] = useState(null);
 
     // Modals for system-wide service management (Add/Delete from all services) - These are now potentially unused if System Service Management is entirely removed
-    const [isAddServiceModalOpen, setIsAddServiceModalOpen] = useState(false); // Can be removed if not needed elsewhere
-    const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] = useState(false); // Can be removed if not needed elsewhere
-    const [serviceToDelete, setServiceToDelete] = useState(null); // Can be removed if not needed elsewhere
-
     // Modals for user-assigned service management (Add/Delete assigned services)
-    // isAssignServiceModalOpen is not used, it was meant for a separate modal for assign,
-    // but assignment is now direct via dropdown+button.
-    const [isAssignServiceModalOpen, setIsAssignServiceModalOpen] = useState(false);
     const [selectedServiceToAddId, setSelectedServiceToAddId] = useState(''); // The serviceId from customServices dropdown
     const [serviceToRemoveFromUser, setServiceToRemoveFromUser] = useState(null); // Service object to remove from user's assigned services
     const [isRemoveFromUserConfirmModalOpen, setIsRemoveFromUserConfirmModalOpen] = useState(false);
@@ -89,7 +82,7 @@ const UserDashboardPage = () => {
     /**
      * Fetches services available to be assigned to users (e.g., all active services).
      */
-    const fetchCustomServices = async () => {
+    const fetchCustomServices = useCallback(async () => {
         if (authUser?.role !== 'admin') return;
 
         try {
@@ -99,7 +92,7 @@ const UserDashboardPage = () => {
             console.error("Failed to fetch assignable services:", err);
             toast.error("Failed to load assignable services.", { theme: "dark" });
         }
-    };
+    }, [authUser?.role]);
 
     useEffect(() => {
         // Fetch assignable services if the authenticated user is an admin on component mount
@@ -107,7 +100,7 @@ const UserDashboardPage = () => {
             // fetchAllServices(); // Removed
             fetchCustomServices();
         }
-    }, [authUser?.role]);
+    }, [authUser?.role, fetchCustomServices]);
 
 
     /**
@@ -119,62 +112,6 @@ const UserDashboardPage = () => {
             return;
         }
         fetchUserData(userIdInput.trim());
-    };
-
-    /**
-     * Handles adding a new service to the system (admin only).
-     * This function is now unreferenced in the UI since the system service management section is removed.
-     * @param {object} newServiceData - Data for the new service.
-     */
-    const handleAddService = async (newServiceData) => {
-        try {
-            const loadingToastId = toast.loading("Adding system service...", { theme: "dark" });
-            const response = await serviceApi.addService(newServiceData);
-            toast.update(loadingToastId, {
-                render: `Service "${response.data.name}" added to system!`,
-                type: "success", isLoading: false, autoClose: 3000, theme: "dark"
-            });
-            setIsAddServiceModalOpen(false);
-            // fetchAllServices(); // Refresh the list of all services - no longer needed here
-            fetchCustomServices(); // Also refresh assignable services
-        } catch (err) {
-            const msg = err.response?.data?.message || 'Failed to add system service.';
-            toast.error(msg, { theme: "dark" });
-        }
-    };
-
-    /**
-     * Confirms deletion of a service from the system (admin only).
-     * This function is now unreferenced in the UI since the system service management section is removed.
-     * @param {object} service - The service object to delete.
-     */
-    const confirmDeleteService = (service) => {
-        setServiceToDelete(service);
-        setIsDeleteConfirmModalOpen(true);
-    };
-
-    /**
-     * Executes deletion of a service from the system (admin only).
-     * This function is now unreferenced in the UI since the system service management section is removed.
-     */
-    const handleDeleteService = async () => {
-        if (!serviceToDelete) return;
-
-        try {
-            const loadingToastId = toast.loading(`Deleting service "${serviceToDelete.name}" from system...`, { theme: "dark" });
-            await serviceApi.deleteService(serviceToDelete.serviceId); // Assuming serviceId is used for deletion
-            toast.update(loadingToastId, {
-                render: `Service "${serviceToDelete.name}" deleted from system!`,
-                type: "success", isLoading: false, autoClose: 3000, theme: "dark"
-            });
-            setIsDeleteConfirmModalOpen(false);
-            setServiceToDelete(null);
-            // fetchAllServices(); // Refresh the list of all services - no longer needed here
-            fetchCustomServices(); // Also refresh assignable services
-        } catch (err) {
-            const msg = err.response?.data?.message || 'Failed to delete system service.';
-            toast.error(msg, { theme: "dark" });
-        }
     };
 
     /**

@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const validate = require('../middelwares/validate')
+const { authenticate } = require('../middelwares/auth');
+const { csrfProtection, issueCsrfToken } = require('../middelwares/csrf');
 
-router.post('/login', authController.login);
-router.get('/me', validate, authController.getMe);
-router.post('/logout', authController.logout);
+router.get('/csrf', issueCsrfToken);
+router.post('/login', csrfProtection, authController.login);
+router.get('/me', authenticate, authController.getMe);
+router.post('/logout', csrfProtection, authController.logout);
 
 module.exports = router;

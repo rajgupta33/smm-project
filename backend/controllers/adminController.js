@@ -3,13 +3,13 @@ const Transaction = require('../models/Transaction');
 const Service = require('../models/Service');
 const Order = require('../models/Order');
 const User = require('../models/User');
-const mongoose = require('mongoose');
-const { v4: uuidv4 } = require('uuid');
+const WalletLedger = require('../models/WalletLedger');
+const Provider = require('../models/Provider');
 require('dotenv').config();
-const axios = require('axios');
-const API_URL = process.env.API_URL;
-const API_KEY = process.env.API_KEY;
 const { buildUserIdQuery, normalizeUserId } = require('../utils/userId');
+const { adminAdjustWallet } = require('../services/walletService');
+const { getPricingSettings, validateMarkupBps } = require('../services/pricingService');
+const { getProviderAdapterForProvider } = require('../providers/providerRegistry');
 
 class AdminController {
 
@@ -21,22 +21,24 @@ class AdminController {
         if (!normalizedUserId || !password || !role) {
             return res.status(400).json({ error: 'userid, password, and role are required' });
         }
-
-        if (req.user.role !== 'admin') {
-            return res.status(400).json({ error: 'you are not a admin' });
+        if (!['user', 'admin'].includes(role)) {
+            return res.status(400).json({ error: 'role must be user or admin' });
         }
+
         try {
             const hashedPassword = await bcrypt.hash(password, 10);
             const newUser = new User({
                 userId: normalizeUserId(userId),
                 password: hashedPassword,
                 role,
-                services
+                services,
+                money: 0,
+                walletBalanceMinor: 0,
             });
 
-            const curr = await newUser.save();
+            await newUser.save();
 
-            res.status(200).json({ userId, password });
+            res.status(200).json({ userId: normalizedUserId, role });
         } catch (err) {
             console.log(err)
             res.status(500).json({ error: 'Error creating user' });
@@ -44,14 +46,25 @@ class AdminController {
     }
 
     async addBalance(req, res) {
-
-        const { userId, amount } = req.payload;
-
-        if (req.user.role !== 'admin') {
-            res.status(404).json({ msg: "unauthorized" });
-        }
+        const { userId, amountMinor, direction, reason } = req.payload;
+        const clientIdempotencyKey = req.get('Idempotency-Key');
 
         try {
+            if (typeof clientIdempotencyKey !== 'string' || !clientIdempotencyKey.trim()) {
+                return res.status(400).json({
+                    msg: 'Wallet adjustment failed',
+                    error: 'Idempotency-Key header is required',
+                    code: 'IDEMPOTENCY_KEY_REQUIRED',
+                });
+            }
+            if (clientIdempotencyKey.length > 200) {
+                return res.status(400).json({
+                    msg: 'Wallet adjustment failed',
+                    error: 'Idempotency-Key header is too long',
+                    code: 'INVALID_IDEMPOTENCY_KEY',
+                });
+            }
+
             const userIdQuery = buildUserIdQuery(userId);
             if (!userIdQuery) {
                 return res.status(400).json({ msg: "User ID is required" });
@@ -61,34 +74,37 @@ class AdminController {
             if (!curr) {
                 return res.status(404).json({ msg: "User not found" });
             }
-            const user = await User.updateOne(
-                { _id: curr._id },
-                { $set: { money: curr.money + amount } }
-            );
-            const session = await mongoose.startSession();
-            session.startTransaction();
-            try {
-                await User.updateOne(
-                    { _id: curr._id },
-                    { $set: { money: curr.money + amount } },
-                    { session }
-                );
-                await Transaction.create([{
-                    amount,
-                    orderId: uuidv4(),
-                    user: curr._id,
-                }], { session });
-                await session.commitTransaction();
-            } catch (err) {
-                await session.abortTransaction();
-                session.endSession();
-                throw err;
-            }
-            session.endSession();
-            res.status(200).json({ data: req.payload });
+
+            const idempotencyKey = `admin-adjustment:${req.currentUser._id}:${clientIdempotencyKey.trim()}`;
+
+            const result = await adminAdjustWallet({
+                userId: curr._id,
+                direction,
+                amountMinor,
+                sourceType: 'ADMIN_ADJUSTMENT',
+                sourceId: idempotencyKey,
+                idempotencyKey,
+                actorType: 'ADMIN',
+                actorId: req.currentUser._id,
+                description: reason,
+            });
+
+            res.status(200).json({
+                data: {
+                    userId: curr.userId,
+                    direction: result.ledger.direction,
+                    amountMinor: result.ledger.amountMinor,
+                    balanceAfterMinor: result.ledger.balanceAfterMinor,
+                    idempotentReplay: !result.created,
+                }
+            });
         } catch (error) {
             console.log(error);
-            res.status(500).json({ msg: "Internal server error", error: error.message });
+            res.status(error.statusCode || 500).json({
+                msg: "Wallet adjustment failed",
+                error: error.message,
+                code: error.code || 'WALLET_ADJUSTMENT_FAILED',
+            });
         }
     }
 
@@ -113,7 +129,7 @@ class AdminController {
             } else {
                 res.status(200).json({ message: 'Service already exists for user.', user });
             }
-        } catch (err) {
+        } catch {
             res.status(500).json({ message: 'Database error.' });
         }
     }
@@ -150,11 +166,6 @@ class AdminController {
 
 
 
-            if (!req.user || req.user.role !== 'admin') {
-                return res.status(403).json({ message: 'Access denied' });
-            }
-
-
             if (!userId || !newPassword) {
                 return res.status(400).json({ message: 'userId and password are required' });
             }
@@ -175,7 +186,7 @@ class AdminController {
 
 
 
-            res.status(200).json({ userId, newPassword });
+            res.status(200).json({ userId, message: 'Password changed successfully' });
         } catch (err) {
             console.log(err);
             res.status(500).json({ message: 'Server error' });
@@ -207,32 +218,67 @@ class AdminController {
                 .sort({ date: -1 })
                 .limit(10);
 
+            const walletLedger = await WalletLedger
+                .find({ userId: user._id })
+                .sort({ createdAt: -1 })
+                .limit(10);
+
 
             const services = await Service.find({
                 serviceId: { $in: user.services || [] }
             });
 
-            res.status(200).json({ userId, balance: user.money, orders, transactions, services });
-        } catch (error) {
+            const balanceMinor = Number.isSafeInteger(user.walletBalanceMinor)
+                ? user.walletBalanceMinor
+                : Math.round((Number(user.money) + Number.EPSILON) * 100);
+            res.status(200).json({
+                userId,
+                balance: balanceMinor / 100,
+                balanceMinor,
+                orders,
+                transactions,
+                walletLedger,
+                services
+            });
+        } catch {
             res.status(500).json({ message: 'Server error' });
         }
     }
 
     async createService(req, res) {
 
-        if (req.user.role !== 'admin') {
-            return res.status(400).json({ error: 'you are not a admin' });
-        }
-
-
         try {
-            const { serviceId, service, name, internalName, rate, min, max, refill } = req.body;
-            const serv = new Service({ serviceId, service, name, internalName, rate, min, max, refill });
+            const { serviceId, service, name, internalName, rate, min, max, refill, markupOverrideBps } = req.body;
+            if (markupOverrideBps !== undefined && markupOverrideBps !== null) {
+                validateMarkupBps(markupOverrideBps);
+                const settings = await getPricingSettings();
+                if (markupOverrideBps < settings.minimumMarginBps) {
+                    const error = new Error('Service markup override is below the minimum margin');
+                    error.statusCode = 400;
+                    error.code = 'MARKUP_BELOW_MINIMUM';
+                    throw error;
+                }
+            }
+            const serv = new Service({
+                serviceId,
+                service,
+                name,
+                internalName,
+                rate,
+                min,
+                max,
+                refill,
+                markupOverrideBps: markupOverrideBps ?? null,
+            });
             await serv.save();
             return res.status(200).json({ message: "new Service created", data: { service, serviceId, name, rate, min, max } });
         } catch (error) {
             console.log(error);
-            return res.status(500).json({ error: 'Failed to create service', details: error.message });
+            return res.status(error.statusCode || 500).json({
+                error: 'Failed to create service',
+                details: error.message,
+                code: error.code || 'SERVICE_CREATE_FAILED',
+            });
         }
 
     }
@@ -261,10 +307,23 @@ class AdminController {
 
     async updateService(req, res) {
         try {
-            const { serviceId, min, max, rate, refill } = req.payload;
+            const { serviceId, min, max, rate, refill, markupOverrideBps } = req.payload;
 
             // Find service by ID and update
             const updateData = { min, max, rate, refill };
+            if (markupOverrideBps !== undefined) {
+                if (markupOverrideBps !== null) {
+                    validateMarkupBps(markupOverrideBps);
+                    const settings = await getPricingSettings();
+                    if (markupOverrideBps < settings.minimumMarginBps) {
+                        const error = new Error('Service markup override is below the minimum margin');
+                        error.statusCode = 400;
+                        error.code = 'MARKUP_BELOW_MINIMUM';
+                        throw error;
+                    }
+                }
+                updateData.markupOverrideBps = markupOverrideBps;
+            }
             const updatedService = await Service.findOneAndUpdate(
                 { serviceId },
                 updateData,
@@ -278,7 +337,11 @@ class AdminController {
 
             res.json({ message: 'Service updated successfully', service: updatedService });
         } catch (error) {
-            res.status(500).json({ message: 'Error updating service', error: error.message });
+            res.status(error.statusCode || 500).json({
+                message: 'Error updating service',
+                error: error.message,
+                code: error.code || 'SERVICE_UPDATE_FAILED',
+            });
         }
     }
 
@@ -300,17 +363,22 @@ class AdminController {
 
     async getServices(req, res) {
         try {
-            const response = await axios.post(API_URL, new URLSearchParams({
-                key: API_KEY,
-                action: 'services'
+            let query = req.query.providerId
+                ? Provider.findById(req.query.providerId)
+                : Provider.findOne({ enabled: true }).sort({ priority: 1, name: 1 });
+            query = query.select('+credentialReference');
+            const provider = await query;
+            if (!provider) return res.status(404).json({ msg: 'Provider not found' });
+            const normalizedServices = await getProviderAdapterForProvider(provider).getServices();
+            const services = normalizedServices.map(({ raw }) => ({
+                ...raw,
+                service: String(raw.service),
             }));
-
-            const services = response.data;
-            services.forEach((service) => { service.service = service.service.toString(); });
 
             res.status(200).json({ data: services });
         } catch (error) {
-            res.status(400).json({ msg: error });
+            console.error('Provider service catalogue failed:', error.message);
+            res.status(502).json({ msg: 'Provider service catalogue is temporarily unavailable' });
         }
     }
 

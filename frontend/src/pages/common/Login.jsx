@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { ToastContainer, toast } from 'react-toastify';
 import { Eye, EyeOff, Lock, User } from 'lucide-react';
 import { useAuth } from '../../context/Authcontext'

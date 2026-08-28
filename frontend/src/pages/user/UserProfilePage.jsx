@@ -4,11 +4,11 @@ import { ToastContainer, toast } from 'react-toastify'; // Import ToastContainer
 import 'react-toastify/dist/ReactToastify.css'; // Import toastify CSS
 import { useAuth } from '../../context/Authcontext';
 import ResponsiveNavbar from '../../components/NavBar';
-import { authApi } from '../../service/api';
+import { authApi, serviceApi } from '../../service/api';
 
 const UserProfilePage = () => {
     const auth = useAuth(); // Using the mock useAuth hook
-    const [userId, setUserId] = useState(auth.user.id);
+    const userId = auth.user.id;
     const [userBalance, setUserBalance] = useState(auth.user.wallet);
     const [showChangePassword, setShowChangePassword] = useState(false);
 
@@ -25,8 +25,8 @@ const UserProfilePage = () => {
     // Simulate fetching user data from an API
     useEffect(() => {
         authApi.me().then((res)=>{
-            setUserBalance(res.data.user.wallet);
-        })
+            if (res.success) setUserBalance(res.data.user.wallet);
+        });
         
     }, []);
 

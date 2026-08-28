@@ -2,13 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { serviceApi } from '../service/api';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css'; // Don't forget to import the CSS!
+import { useAuth } from '../context/Authcontext';
 
 
 function OrderForm() {
+  const auth = useAuth();
   const [formData, setFormData] = useState({
     linkInput: '',
     serviceId: '', // This will hold selectedProduct.serviceId
     quantity: 1,
+    runs: 1,
+    interval: 60,
     notes: '', // Still managed in state for display/user input
     totalAmount: 0,
   });
@@ -16,18 +20,13 @@ function OrderForm() {
   const [servicesData, setServicesData] = useState([]); // State to store fetched services
   const [loading, setLoading] = useState(true); // State for loading indicator
   const [error, setError] = useState(null); // State for error handling
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
 
   // Fetch services data on component mount
   useEffect(() => {
     const fetchServices = async () => {
       try {
         setLoading(true);
-        // Only fetch if servicesData is empty to prevent unnecessary re-fetches
-        if (servicesData.length !== 0) {
-          setLoading(false); // If already loaded, stop loading state
-          return;
-        }
-
         const response = await serviceApi.getUserServices();
         setServicesData(response.data);
         setError(null); // Clear any previous errors
@@ -55,7 +54,7 @@ function OrderForm() {
     if (selectedProduct) {
       // Ensure rate is parsed as a number
       const rate = parseFloat(selectedProduct.rate/1000);
-      const calculatedTotal = formData.quantity * rate;
+      const calculatedTotal = formData.quantity * formData.runs * rate;
       setFormData(prevData => ({
         ...prevData,
         totalAmount: calculatedTotal,
@@ -66,7 +65,7 @@ function OrderForm() {
         totalAmount: 0,
       }));
     }
-  }, [formData.serviceId, formData.quantity, selectedProduct]);
+  }, [formData.serviceId, formData.quantity, formData.runs, selectedProduct]);
 
   // Handle input changes
   const handleChange = (e) => {
@@ -74,17 +73,21 @@ function OrderForm() {
 
     setFormData((prevData) => {
       let newValue = value;
-      if (name === 'quantity') {
+      if (['quantity', 'runs', 'interval'].includes(name)) {
         const numValue = parseInt(value, 10);
         // Ensure quantity is a valid number; if not, default to 1 or previous valid value
         if (isNaN(numValue)) {
             newValue = ''; // Allow empty input temporarily if user is deleting
         } else {
             // Apply min/max bounds only if a product is selected
-            if (selectedProduct) {
+            if (name === 'quantity' && selectedProduct) {
                 if (numValue < parseInt(selectedProduct.min, 10)) newValue = numValue;
                 else if (numValue > parseInt(selectedProduct.max, 10)) newValue = parseInt(selectedProduct.max, 10);
                 else newValue = numValue;
+            } else if (name === 'runs') {
+                newValue = Math.min(100, Math.max(1, numValue));
+            } else if (name === 'interval') {
+                newValue = Math.min(43200, Math.max(1, numValue));
             } else {
                 // If no product selected, apply general min/max (or no limits)
                 if (numValue < 1) newValue = 1;
@@ -116,32 +119,37 @@ function OrderForm() {
         toast.error(`Quantity must be between ${minQuantity} and ${maxQuantity}.`);
         return;
     }
+    if (!Number.isInteger(formData.runs) || formData.runs < 1 || formData.runs > 100) {
+        toast.error('Runs must be between 1 and 100.');
+        return;
+    }
+    if (formData.runs > 1 && (!Number.isInteger(formData.interval) || formData.interval < 1 || formData.interval > 43200)) {
+        toast.error('Interval must be between 1 and 43200 minutes.');
+        return;
+    }
     if (!formData.linkInput.trim()) {
         toast.error("Link is required.");
         return;
     }
 
-    // Construct the data to send to the backend
-    // 'notes' is intentionally excluded from the payload, 'rate' is now included.
+    // The backend is authoritative for provider mapping, rate, refill, and total.
     const orderData = {
       linkInput: formData.linkInput,
       serviceId: formData.serviceId,
-      providerServiceId: selectedProduct.service,
-      service: selectedProduct.service,
       quantity: formData.quantity,
-      rate: parseFloat(selectedProduct.rate), // Include the rate from selectedProduct
-      totalAmount: formData.totalAmount,
-      refill: selectedProduct.refill || false
-      // 'notes' is intentionally excluded from the payload
+      runs: formData.runs,
+      interval: formData.runs > 1 ? formData.interval : undefined,
     };
 
+    let loadingToastId;
     try {
       // Show loading toast immediately
-      const loadingToastId = toast.loading("Placing your order...", {
+      loadingToastId = toast.loading("Placing your order...", {
         autoClose: false, // Keep open until success/error
       });
 
-      const response = await serviceApi.placeOrder(orderData); // Send constructed orderData
+      const response = await serviceApi.placeOrder(orderData, idempotencyKey);
+      if (response.data?.orderId) await auth.refreshAuth();
 
       // If response contains an error, show error toast and return
       if (response && !response.success) {
@@ -152,12 +160,91 @@ function OrderForm() {
           autoClose: 5000,
           closeButton: true,
         });
+        if (response.data?.code === 'PROVIDER_REJECTED') {
+          setIdempotencyKey(crypto.randomUUID());
+        }
+        return;
+      }
+
+      if (response.data?.code === 'RECONCILIATION_REQUIRED') {
+        toast.update(loadingToastId, {
+          render: 'Order recorded, but provider confirmation is uncertain. Support will reconcile it; it will not be submitted again automatically.',
+          type: 'warning',
+          isLoading: false,
+          autoClose: 8000,
+          closeButton: true,
+        });
+        setIdempotencyKey(crypto.randomUUID());
+        setFormData({
+          linkInput: '',
+          serviceId: '',
+          quantity: 1,
+          notes: '',
+          runs: 1,
+          interval: 60,
+          totalAmount: 0,
+        });
+        return;
+      }
+
+      if (response.data?.code === 'PROVIDER_REJECTED') {
+        toast.update(loadingToastId, {
+          render: 'The provider rejected this order and the wallet debit was refunded.',
+          type: 'error',
+          isLoading: false,
+          autoClose: 6000,
+          closeButton: true,
+        });
+        setIdempotencyKey(crypto.randomUUID());
+        return;
+      }
+
+      if (response.data?.code === 'MANUAL_ORDER_ACCEPTED') {
+        toast.update(loadingToastId, {
+          render: 'Order recorded for manual fulfilment. Progress will appear in your order timeline.',
+          type: 'success',
+          isLoading: false,
+          autoClose: 5000,
+          closeButton: true,
+        });
+        setFormData({ linkInput: '', serviceId: '', quantity: 1, runs: 1, interval: 60, notes: '', totalAmount: 0 });
+        setIdempotencyKey(crypto.randomUUID());
+        return;
+      }
+
+      if (response.data?.code === 'ORDER_QUEUED') {
+        toast.update(loadingToastId, {
+          render: response.data.queueDispatchPending
+            ? 'Order recorded. Background dispatch is waiting for the queue connection.'
+            : 'Order recorded and queued for provider submission.',
+          type: response.data.queueDispatchPending ? 'warning' : 'success',
+          isLoading: false,
+          autoClose: 5000,
+          closeButton: true,
+        });
+        setFormData({ linkInput: '', serviceId: '', quantity: 1, runs: 1, interval: 60, notes: '', totalAmount: 0 });
+        setIdempotencyKey(crypto.randomUUID());
+        return;
+      }
+
+      if (response.data?.code === 'DRIP_FEED_ORDER_ACCEPTED') {
+        toast.update(loadingToastId, {
+          render: response.data.queueDispatchPending
+            ? 'Drip-feed order recorded. The first run is waiting for queue dispatch.'
+            : 'Drip-feed order recorded and the first run is queued.',
+          type: response.data.queueDispatchPending ? 'warning' : 'success',
+          isLoading: false,
+          autoClose: 5000,
+          closeButton: true,
+        });
+        setFormData({ linkInput: '', serviceId: '', quantity: 1, runs: 1, interval: 60, notes: '', totalAmount: 0 });
+        setIdempotencyKey(crypto.randomUUID());
         return;
       }
 
       // Update toast on success
       toast.update(loadingToastId, {
-        render: "Order submitted successfully!",
+        render: response.data?.idempotentReplay ? 'Order was already recorded.' : 'Order submitted successfully!',
         type: "success",
         isLoading: false,
         autoClose: 3000, // Close after 3 seconds
@@ -169,22 +256,29 @@ function OrderForm() {
         linkInput: '',
         serviceId: '',
         quantity: 1,
+        runs: 1,
+        interval: 60,
         notes: '', // Reset notes field in state as well
         totalAmount: 0,
       });
+      setIdempotencyKey(crypto.randomUUID());
 
     } catch (err) {
       console.error('Failed to submit order:', err);
       // Extract error message from response if available, otherwise use generic
       const errorMessage = err.response?.data?.message || err.message || 'An unexpected error occurred.';
       // Update toast on error
-      toast.update(loadingToastId, {
-        render: `Failed to submit order: ${errorMessage}`,
-        type: "error",
-        isLoading: false,
-        autoClose: 5000, // Close after 5 seconds
-        closeButton: true,
-      });
+      if (loadingToastId) {
+        toast.update(loadingToastId, {
+          render: `Failed to submit order: ${errorMessage}`,
+          type: "error",
+          isLoading: false,
+          autoClose: 5000, // Close after 5 seconds
+          closeButton: true,
+        });
+      } else {
+        toast.error(`Failed to submit order: ${errorMessage}`);
+      }
     }
   };
 
@@ -273,10 +367,6 @@ function OrderForm() {
               <span className="text-white text-sm font-medium">{selectedProduct.name}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-purple-300 text-sm">User Defined ID:</span>
-              <span className="text-white text-sm font-medium">{selectedProduct.service}</span>
-            </div>
-            <div className="flex justify-between items-center">
               <span className="text-purple-300 text-sm">Rate:</span>
               <span className="text-white text-sm font-medium">₹{parseFloat(selectedProduct.rate)}</span>
             </div>
@@ -286,7 +376,7 @@ function OrderForm() {
         {/* Quantity Input */}
         <div>
           <label htmlFor="quantity" className="block text-purple-300 text-sm font-semibold mb-2">
-            Quantity
+            Quantity per run
           </label>
           {/* Display min/max below the quantity input */}
           {selectedProduct && (
@@ -307,6 +397,43 @@ function OrderForm() {
             disabled={!formData.serviceId} // Disable quantity input if no product is selected
           />
         </div>
+
+        <div>
+          <label htmlFor="runs" className="block text-purple-300 text-sm font-semibold mb-2">
+            Runs
+          </label>
+          <input
+            type="number"
+            id="runs"
+            name="runs"
+            value={formData.runs}
+            onChange={handleChange}
+            min="1"
+            max="100"
+            required
+            className="w-full p-3 bg-gray-700 border border-purple-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+          />
+          <p className="text-purple-400 text-xs mt-1">Use more than one run to create a drip-feed schedule.</p>
+        </div>
+
+        {formData.runs > 1 && (
+          <div>
+            <label htmlFor="interval" className="block text-purple-300 text-sm font-semibold mb-2">
+              Interval (minutes)
+            </label>
+            <input
+              type="number"
+              id="interval"
+              name="interval"
+              value={formData.interval}
+              onChange={handleChange}
+              min="1"
+              max="43200"
+              required
+              className="w-full p-3 bg-gray-700 border border-purple-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+            />
+          </div>
+        )}
 
         {/* Notes Input */}
         <div>

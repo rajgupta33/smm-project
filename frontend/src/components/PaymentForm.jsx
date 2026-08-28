@@ -13,6 +13,7 @@ import { serviceApi } from '../service/api';
 const PaymentForm = () => {
   const [userId, setUserId] = useState('');
   const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
 
   /**
    * Handles form submission.
@@ -31,19 +32,25 @@ const PaymentForm = () => {
       toast.error('Amount must be a positive number.', { theme: "dark", className: "bg-purple-950 text-purple-50 border-purple-700" });
       return;
     }
+    if (!reason.trim()) {
+      toast.error('A reason is required.', { theme: "dark", className: "bg-purple-950 text-purple-50 border-purple-700" });
+      return;
+    }
 
     try {
       // Call the service API
       const response = await serviceApi.addBalance({
         userId,
-        amount: parseFloat(amount),
-      });
+        amountMinor: Math.round(parseFloat(amount) * 100),
+        direction: 'CREDIT',
+        reason: reason.trim(),
+      }, crypto.randomUUID());
 
       // Log the full response data for debugging
 
       // Show success toast ONLY if response.success is true
       if (response.success) { // This check is now based on the return value of serviceApi.addBalance
-        toast.success(`payment sucessfull in ${response.data.userId} of amount ${response.data.amount}`, {
+        toast.success(`Wallet adjusted for ${response.data.userId}: ₹${(response.data.amountMinor / 100).toFixed(2)}`, {
           theme: "dark",
           className: "bg-purple-950 text-purple-50 border-purple-700",
         });
@@ -52,6 +59,7 @@ const PaymentForm = () => {
         setTimeout(() => {
           setUserId('');
           setAmount('');
+          setReason('');
         }, 500); // 500ms delay
       } else {
           // This else block might be hit if serviceApi.addBalance resolves with success: false
@@ -110,6 +118,20 @@ const PaymentForm = () => {
           placeholder="Enter amount"
           min="0"
           step="0.01"
+          className="w-full px-4 py-2 bg-gray-800 border border-purple-700 rounded-md text-purple-50 focus:border-purple-500 focus:outline-none transition-colors"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="reason" className="text-purple-400">
+          Reason
+        </label>
+        <input
+          id="reason"
+          type="text"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Reason for this wallet credit"
           className="w-full px-4 py-2 bg-gray-800 border border-purple-700 rounded-md text-purple-50 focus:border-purple-500 focus:outline-none transition-colors"
         />
       </div>
