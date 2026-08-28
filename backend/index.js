@@ -7,7 +7,7 @@ const { connectToDatabase, disconnectFromDatabase } = require('./utils/serverles
 const { authenticate, getJwtSecret, requireAdmin } = require('./middelwares/auth');
 const { getRuntimeConfig } = require('./config/runtimeConfig');
 const { csrfProtection } = require('./middelwares/csrf');
-const { closeProducerQueues } = require('./queues/queueRegistry');
+const { checkRedisConnection, closeProducerQueues } = require('./queues/queueRegistry');
 
 function createApp({ connect = connectToDatabase } = {}) {
   getJwtSecret();
@@ -16,6 +16,34 @@ function createApp({ connect = connectToDatabase } = {}) {
   const app = express();
   app.locals.runtimeConfig = runtimeConfig;
   app.set('trust proxy', runtimeConfig.trustProxy);
+
+  // Liveness: the process is up and configuration loaded. No dependency
+  // checks here, so an orchestrator never restarts a healthy process just
+  // because Mongo or Redis is briefly unreachable.
+  app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok' });
+  });
+
+  // Readiness: safe to receive traffic. Checked separately from liveness so
+  // a database or Redis outage takes the instance out of rotation without
+  // triggering restarts.
+  app.get('/ready', async (req, res) => {
+    const { getConnectionStatus } = require('./utils/serverlessDb');
+    const checks = { mongo: false, redis: false };
+    try {
+      await connect();
+      checks.mongo = getConnectionStatus().readyState === 1;
+    } catch (error) {
+      console.error('Readiness check: database unreachable:', error.message);
+    }
+    try {
+      checks.redis = await checkRedisConnection();
+    } catch (error) {
+      console.error('Readiness check: Redis unreachable:', error.message);
+    }
+    const ready = checks.mongo && checks.redis;
+    res.status(ready ? 200 : 503).json({ status: ready ? 'ready' : 'not_ready', checks });
+  });
 
   app.use(cors({
     origin(origin, callback) {

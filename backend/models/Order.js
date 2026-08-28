@@ -107,6 +107,14 @@ const OrderSchema = new mongoose.Schema({
         type: Date,
         default: null,
     },
+    lastOrderStatusCheckAt: {
+        type: Date,
+        default: null,
+    },
+    nextOrderStatusCheckAt: {
+        type: Date,
+        default: null,
+    },
     pricingSnapshot: {
         type: PricingSnapshotSchema,
         default: null,
@@ -137,4 +145,5 @@ OrderSchema.index({ localOrderId: 1 }, { unique: true, sparse: true });
 OrderSchema.index({ providerOrderId: 1 }, { unique: true, sparse: true });
 OrderSchema.index({ lifecycleStatus: 1, updatedAt: 1 });
 OrderSchema.index({ providerId: 1, providerOrderId: 1 });
+OrderSchema.index({ lifecycleStatus: 1, nextOrderStatusCheckAt: 1 });
 module.exports = mongoose.model('Order', OrderSchema);

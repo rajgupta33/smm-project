@@ -7,6 +7,11 @@ const OrderReconciliation = require('../models/OrderReconciliation');
 const { appendOrderEvent } = require('./orderEventService');
 const { createDispatch, dripFeedDispatchDocument } = require('./jobDispatchService');
 const { refundWallet } = require('./walletService');
+const { getRuntimeConfig } = require('../config/runtimeConfig');
+
+function defaultNextOrderStatusCheckAt(now = new Date()) {
+    return new Date(now.getTime() + getRuntimeConfig().orderStatus.pollMinutes * 60000);
+}
 
 class OrderReconciliationError extends Error {
     constructor(message, code = 'RECONCILIATION_FAILED', statusCode = 400) {
@@ -87,6 +92,7 @@ async function resolveAccepted(order, context, input, dependencies, session, now
                     providerOrderId: input.providerOrderId,
                     lifecycleStatus: 'SUBMITTED',
                     lastStatus: 'Pending',
+                    nextOrderStatusCheckAt: dependencies.nextOrderStatusCheckAt(now),
                     reconciliationReason: null,
                     reconciliationRequiredAt: null,
                     'submissionAttempt.finishedAt': now,
@@ -235,6 +241,7 @@ async function resolveOrderReconciliation(input, overrides = {}) {
     const dependencies = {
         mongoose, AuditLog, DripFeedOrder, DripFeedRun, Order, OrderReconciliation,
         appendOrderEvent, createDispatch, refundWallet,
+        nextOrderStatusCheckAt: defaultNextOrderStatusCheckAt,
         ...overrides,
     };
     if (!dependencies.mongoose.isValidObjectId(input?.orderId)

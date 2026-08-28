@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, Mail, Menu, X, ListOrderedIcon, LogOutIcon, IndianRupeeIcon, Settings, RotateCcw, MessageSquare, Network, ShieldAlert } from 'lucide-react';
+import { Home, User, Mail, Menu, X, ListOrderedIcon, LogOutIcon, IndianRupeeIcon, Settings, RotateCcw, MessageSquare, Network, ShieldAlert, LayoutDashboard, ClipboardList } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom'; // Import Link and useNavigate from react-router-dom
 import { useAuth } from '../context/Authcontext';
 
@@ -18,6 +18,8 @@ const NAV_ICONS = {
   MessageSquare,
   Network,
   ShieldAlert,
+  LayoutDashboard,
+  ClipboardList,
 };
 
 const DEFAULT_BRAND = "Get Fame Agency";
@@ -25,8 +27,6 @@ const DEFAULT_BRAND = "Get Fame Agency";
 // Define default links for unauthenticated users
 const defaultLinks = [
   { name: 'Home', href: '/home', icon: 'Home' },
-  { name: 'About', href: '/about', icon: 'User' },
-  { name: 'Contact', href: '/contact', icon: 'Mail' },
 ];
 
 export default function ResponsiveNavbar() {
@@ -53,6 +53,7 @@ export default function ResponsiveNavbar() {
       } else if (role === 'admin') {
         setLinks([
           { name: 'Home', href: '/home', icon: 'Home' },
+          { name: 'Overview', href: '/adminOverview', icon: 'LayoutDashboard' },
           { name: 'Add Payment', href: '/addPayment', icon: 'Mail' },
           { name: 'Services', href: '/services', icon: 'User' },
           { name: 'Change Password', href: '/changeUserPassword', icon: 'User' },
@@ -61,6 +62,7 @@ export default function ResponsiveNavbar() {
           { name: 'Payments', href: '/adminPayments', icon: 'IndianRupeeIcon' },
           { name: 'Refills', href: '/adminRefills', icon: 'RotateCcw' },
           { name: 'Tickets', href: '/adminTickets', icon: 'MessageSquare' },
+          { name: 'Manual Tasks', href: '/adminManualTasks', icon: 'ClipboardList' },
           { name: 'Providers', href: '/adminProviders', icon: 'Network' },
           { name: 'Reconciliation', href: '/adminReconciliation', icon: 'ShieldAlert' },
         ]);

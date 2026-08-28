@@ -112,6 +112,7 @@ function harness({ dripFeed = false, finalRun = false, replay = null } = {}) {
         async appendOrderEvent(input) { events.push(input); },
         AuditLog: { async create(entries) { audits.push(entries[0]); } },
         async createDispatch(document) { dispatches.push(document); },
+        nextOrderStatusCheckAt: () => new Date('2026-08-29T12:10:00Z'),
     };
     return {
         order, parent, run, refunds, events, audits, reconciliations,

@@ -8,6 +8,11 @@ const {
 const { refundWallet } = require('./walletService');
 const { appendOrderEvent } = require('./orderEventService');
 const { recordProviderMetric } = require('./providerMetricsService');
+const { getRuntimeConfig } = require('../config/runtimeConfig');
+
+function defaultNextOrderStatusCheckAt(now = new Date()) {
+    return new Date(now.getTime() + getRuntimeConfig().orderStatus.pollMinutes * 60000);
+}
 
 function finishedAttempt(result, finishedAt = new Date()) {
     return {
@@ -75,6 +80,7 @@ async function completeAccepted(order, result, dependencies) {
                     providerOrderId: result.providerOrderId,
                     lifecycleStatus: 'SUBMITTED',
                     lastStatus: 'Pending',
+                    nextOrderStatusCheckAt: dependencies.nextOrderStatusCheckAt(),
                     reconciliationReason: null,
                     reconciliationRequiredAt: null,
                     'submissionAttempt.finishedAt': new Date(),
@@ -181,6 +187,7 @@ async function submitCommittedOrder(order, overrides = {}) {
         recordProviderMetric,
         appendOrderEvent,
         refundWallet,
+        nextOrderStatusCheckAt: defaultNextOrderStatusCheckAt,
         ...overrides,
     };
     const startedAt = new Date();

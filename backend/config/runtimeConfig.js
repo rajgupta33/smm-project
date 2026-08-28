@@ -115,6 +115,9 @@ function getRuntimeConfig(env = process.env) {
             cooldownHours: positiveIntegerEnv(env, 'REFILL_COOLDOWN_HOURS', 24),
             statusPollMinutes: positiveIntegerEnv(env, 'REFILL_STATUS_POLL_MINUTES', 5),
         },
+        orderStatus: {
+            pollMinutes: positiveIntegerEnv(env, 'ORDER_STATUS_POLL_MINUTES', 10),
+        },
         allowedOrigins,
         trustProxy: parseTrustProxy(env.TRUST_PROXY, nodeEnv),
         cookie: {

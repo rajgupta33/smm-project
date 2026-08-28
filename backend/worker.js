@@ -4,10 +4,11 @@ const { UnrecoverableError, Worker } = require('bullmq');
 const { getRuntimeConfig } = require('./config/runtimeConfig');
 const { connectToDatabase, disconnectFromDatabase } = require('./utils/serverlessDb');
 const {
-    DRIP_FEED_QUEUE, ORDER_QUEUE, PAYMENT_RECONCILE_QUEUE, PROVIDER_SYNC_QUEUE,
-    REFILL_QUEUE, createWorkerConnection, closeProducerQueues, getQueue,
+    DRIP_FEED_QUEUE, ORDER_QUEUE, ORDER_STATUS_QUEUE, PAYMENT_RECONCILE_QUEUE,
+    PROVIDER_SYNC_QUEUE, REFILL_QUEUE, createWorkerConnection, closeProducerQueues, getQueue,
 } = require('./queues/queueRegistry');
 const { dispatchPendingJobs } = require('./services/jobDispatchService');
+const { scanOrderStatuses } = require('./services/orderStatusService');
 const { processDripFeedRunJob } = require('./workers/dripFeedWorker');
 const {
     processOrderSubmissionJob, processPaymentReconciliationJob,
@@ -54,6 +55,10 @@ async function startWorker() {
             if (job.name === 'scan-refills') return scanRefillRequests();
             throw new Error(`Unsupported refill job: ${job.name}`);
         }, { ...workerOptions, concurrency: 2 }),
+        new Worker(ORDER_STATUS_QUEUE, async (job) => {
+            if (job.name !== 'scan-order-status') throw new Error(`Unsupported order-status job: ${job.name}`);
+            return scanOrderStatuses();
+        }, { ...workerOptions, concurrency: 1 }),
     ];
 
     await getQueue(PAYMENT_RECONCILE_QUEUE).upsertJobScheduler(
@@ -75,6 +80,18 @@ async function startWorker() {
         { every: 60000 },
         {
             name: 'scan-refills', data: {},
+            opts: {
+                attempts: 3, backoff: { type: 'exponential', delay: 5000 },
+                removeOnComplete: { age: 7 * 24 * 60 * 60, count: 10000 },
+                removeOnFail: { age: 30 * 24 * 60 * 60, count: 10000 },
+            },
+        }
+    );
+    await getQueue(ORDER_STATUS_QUEUE).upsertJobScheduler(
+        'order-status-polling',
+        { every: 60000 },
+        {
+            name: 'scan-order-status', data: {},
             opts: {
                 attempts: 3, backoff: { type: 'exponential', delay: 5000 },
                 removeOnComplete: { age: 7 * 24 * 60 * 60, count: 10000 },

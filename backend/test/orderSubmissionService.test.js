@@ -79,6 +79,7 @@ function harness(providerResult, { failAcceptancePersistence = false } = {}) {
             return { created: true };
         },
         async appendOrderEvent() {},
+        nextOrderStatusCheckAt: () => new Date('2026-08-29T12:10:00Z'),
     };
     return {
         state,

@@ -22,6 +22,7 @@ import TicketsPage from './pages/Admin/TicketsPage'
 import ManualTasksPage from './pages/Admin/ManualTasksPage'
 import AdminOverviewPage from './pages/Admin/AdminOverviewPage'
 import OrderDetailPage from './pages/user/OrderDetailPage'
+import NotFound from './pages/common/NotFound'
 
 const ProviderRoutingPage = lazy(() => import('./pages/Admin/ProviderRoutingPage'))
 const ReconciliationPage = lazy(() => import('./pages/Admin/ReconciliationPage'))
@@ -61,6 +62,8 @@ function App() {
             <Route path="/profile" element={<UserProfilePage/>}/>
             <Route path="/support" element={<SupportPage/>}/>
           </Route>
+
+          <Route path="*" element={<NotFound/>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

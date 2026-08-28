@@ -15,6 +15,7 @@
     "worker": "node worker.js",
     "worker:dev": "nodemon worker.js",
     "lint": "eslint .",
+    "create:admin": "node scripts/createAdmin.js",
     "migrate:catalogue": "node scripts/mapLegacyServicesToCatalogue.js",
     "migrate:job-dispatch": "node scripts/backfillJobDispatches.js",
     "migrate:drip-feed": "node scripts/migrateDripFeedState.js",

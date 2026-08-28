@@ -7,6 +7,7 @@ const PROVIDER_SYNC_QUEUE = 'provider-sync';
 const PAYMENT_RECONCILE_QUEUE = 'payment-reconcile';
 const REFILL_QUEUE = 'provider-refill';
 const DRIP_FEED_QUEUE = 'drip-feed-submit';
+const ORDER_STATUS_QUEUE = 'order-status-scan';
 
 let producerConnection;
 let queues;
@@ -40,6 +41,7 @@ function getQueues() {
             [PAYMENT_RECONCILE_QUEUE, new Queue(PAYMENT_RECONCILE_QUEUE, options)],
             [REFILL_QUEUE, new Queue(REFILL_QUEUE, options)],
             [DRIP_FEED_QUEUE, new Queue(DRIP_FEED_QUEUE, options)],
+            [ORDER_STATUS_QUEUE, new Queue(ORDER_STATUS_QUEUE, options)],
         ]);
     }
     return queues;
@@ -63,6 +65,19 @@ function createWorkerConnection() {
     return connection;
 }
 
+async function checkRedisConnection(timeoutMs = 2000) {
+    try {
+        const connection = getProducerConnection();
+        const pong = await Promise.race([
+            connection.ping(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Redis ping timed out')), timeoutMs)),
+        ]);
+        return pong === 'PONG';
+    } catch {
+        return false;
+    }
+}
+
 async function closeProducerQueues() {
     if (queues) await Promise.all([...queues.values()].map((queue) => queue.close()));
     queues = undefined;
@@ -73,9 +88,11 @@ async function closeProducerQueues() {
 module.exports = {
     DRIP_FEED_QUEUE,
     ORDER_QUEUE,
+    ORDER_STATUS_QUEUE,
     PAYMENT_RECONCILE_QUEUE,
     PROVIDER_SYNC_QUEUE,
     REFILL_QUEUE,
+    checkRedisConnection,
     closeProducerQueues,
     createWorkerConnection,
     getQueue,
