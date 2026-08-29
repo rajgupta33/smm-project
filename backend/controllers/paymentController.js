@@ -105,6 +105,17 @@ async function cashfreeWebhook(req, res) {
     try {
         const signature = req.get('x-webhook-signature');
         const timestamp = req.get('x-webhook-timestamp');
+        // Some serverless runtimes consume the request stream before Express
+        // sees it, which leaves an empty buffer here and makes every signature
+        // check fail. That looks identical to an attack in the logs, so call it
+        // out explicitly: it is a deployment problem, not a hostile request.
+        if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+            console.error(
+                'Cashfree webhook raw body is empty or not a buffer. The platform likely parsed ' +
+                'the body before express.raw() ran, so HMAC verification cannot succeed. ' +
+                'Wallet credits still settle through the worker payment-reconciliation scan.'
+            );
+        }
         const payload = verifyCashfreeWebhook({ rawBody: req.body, signature, timestamp });
         const eventKey = webhookEventKey({
             idempotencyKey: req.get('x-idempotency-key'), signature, timestamp, rawBody: req.body,
@@ -114,6 +125,7 @@ async function cashfreeWebhook(req, res) {
         });
         return res.status(200).json({ received: true, duplicate: Boolean(result?.duplicate) });
     } catch (error) {
+        console.error('Cashfree webhook rejected:', error.code || 'UNKNOWN', error.message);
         return sendError(res, error);
     }
 }
