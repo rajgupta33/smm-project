@@ -226,3 +226,6 @@ pnpm-lock.yaml
 # Local migration verification baselines contain database record identifiers.
 backend/migration-baseline*.json
 frontend/.env.local
+
+# Original brand asset kept locally; the deployed copy is frontend/public/logo.png
+get fame services logo.png
