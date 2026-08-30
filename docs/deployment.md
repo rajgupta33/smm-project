@@ -1,198 +1,167 @@
-# Deployment: Vercel + Railway
+# Production deployment: Vercel + Railway
 
-Three deployable units across two platforms:
+Final architecture:
 
-| Unit | Platform | Why there |
-|---|---|---|
-| Frontend (`frontend/`) | Vercel | Static Vite build, free tier, CDN |
-| Backend API (`backend/`) | Vercel | Serverless Express via `api/index.js` |
-| Worker (`backend/`, `npm run worker`) | Railway | Long-running process; serverless cannot host it |
-| Redis | Railway | BullMQ queues |
-| MongoDB | MongoDB Atlas | Replica set required for transactions |
+- `https://services.getfame360.com`: Vite frontend on Vercel.
+- `https://api.services.getfame360.com`: always-running Express API on Railway.
+- background worker: private Railway service using `npm run worker`.
+- Redis: private Railway Redis shared by API and worker. Do not enable a public TCP proxy.
+- database: MongoDB Atlas.
+- payments: Cashfree.
 
-The worker is not optional. `placeOrder` debits the wallet and writes a durable
-outbox record, then the worker performs the actual provider submission. With no
-worker running, customers are charged and orders are never submitted.
+Do not deploy, run production migrations, change DNS, or enable Cashfree production mode until the restored-snapshot rehearsal and staging checks are complete.
 
-## Prerequisites
+## Build and start settings
 
-- MongoDB Atlas cluster (any tier; all Atlas clusters are replica sets)
-- Railway project with a Redis service
-- Cashfree merchant account (start in sandbox)
-- Vercel account linked to the GitHub repository
+### Vercel frontend
 
-## MongoDB Atlas
+- Root Directory: `frontend`
+- Install Command: `npm ci`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+- Variable: `VITE_API_BASE_URL=https://api.services.getfame360.com/api`
+- Domain: `services.getfame360.com`
 
-1. **Database Access** → create a dedicated application user, not a personal login.
-2. **Network Access** → allow `0.0.0.0/0`. Vercel and Railway do not provide
-   stable egress IPs on standard plans.
-3. **Connect → Drivers** → copy the `mongodb+srv://` string and include a
-   database name in the path before the query string.
+`frontend/vercel.json` supplies SPA fallback routing. The backend is not a Vercel project.
 
-Atlas M0 (free) has no automated backups. Before accepting real customer money,
-move to a tier with backups — the wallet ledger is the only record of what each
-customer is owed, and Cashfree cannot reconstruct balances (it knows deposits,
-not spending).
+### Railway API
 
-## Railway: Redis
+- Root Directory: `backend`
+- Build Command: `npm ci`
+- Start Command: `npm start`
+- Healthcheck Path: `/health`
+- Domain: `api.services.getfame360.com`
 
-1. **New → Database → Add Redis**.
-2. **Settings → Deploy** → append `--maxmemory-policy noeviction` to the existing
-   start command. Do not remove the password flag. BullMQ loses jobs silently
-   under an eviction policy.
-3. **Settings → Networking → Generate Domain** to create the TCP proxy. The
-   Vercel API needs a publicly reachable endpoint; Railway's private network is
-   only reachable from inside the same project.
+Railway supplies `PORT`; `server.js` binds it on `0.0.0.0`. Use `/health` for process health so a dependency outage does not cause a restart loop. Monitor `/ready` separately. It returns 200 only when MongoDB is connected, Redis is connected with `maxmemory-policy=noeviction`, and the worker heartbeat is fresh.
 
-Two different URLs come out of this:
+### Railway worker
 
-- **Private** (`redis.railway.internal`) — used by the worker, referenced as
-  `${{Redis.REDIS_URL}}` so Railway wires it automatically.
-- **Public** (proxy host/port) — used by the Vercel API. Build it as
-  `redis://default:<password>@<public-host>:<public-port>`.
+- Root Directory: `backend`
+- Build Command: `npm ci`
+- Start Command: `npm run worker`
+- Public domain: none
 
-The public endpoint is protected only by its password. Treat it like a database
-credential: environment variables only, never committed.
+Start with exactly one always-on replica because it owns recurring schedulers. The heartbeat is written every 15 seconds and expires after 45 seconds. Alert on non-200 `/ready` and stale worker diagnostics.
 
-## Railway: worker service
+### Railway Redis
 
-1. **New → Deploy from GitHub repo** → select this repository.
-2. **Settings**:
-   - Root Directory: `backend`
-   - Build Command: `npm install`
-   - Start Command: `npm run worker`
-   - Watch Paths: `backend/**`
-3. **Variables**: every backend variable below, using the **private** Redis URL.
-4. Deploy, then check logs for `SMM background worker is ready`.
+- Keep Redis in the same Railway project as API and worker.
+- Reference its private `REDIS_URL` from both services.
+- Do not generate a public TCP proxy.
+- Set and verify `maxmemory-policy=noeviction`; `/ready` fails otherwise.
+- Keep `BULLMQ_PREFIX=smm-production` identical on API and worker.
 
-## Vercel: backend API
+Completed jobs retain at most 7 days/10,000 entries; failed jobs retain at most 30 days/10,000. MongoDB durable dispatch records and unique business indexes, not Redis, provide duplicate protection.
 
-Import the repository as a project with **Root Directory** `backend`. The
-existing `backend/vercel.json` routes all paths to `api/index.js`.
+## Environment variables
 
-Set every backend variable below, using the **public** Redis URL.
+Use Railway secret variables; never commit values. `backend/.env.production.example` is the names-only checklist.
 
-## Vercel: frontend
+### Shared by API and worker
 
-Import the repository a second time with **Root Directory** `frontend`.
-Build command `npm run build`, output directory `dist`. The existing
-`frontend/vercel.json` handles SPA routing.
+| Variable | Production requirement |
+|---|---|
+| `NODE_ENV` | `production` |
+| `MONGO_URI` | Atlas URI including database name; dedicated application user |
+| `JWT_SECRET` | Random secret of at least 32 characters |
+| `REDIS_URL` | Railway private Redis URL |
+| `BULLMQ_PREFIX` | `smm-production`, identical on both services |
+| `API_URL` | Provider API base URL, not this application's public API URL |
+| `API_KEY` | Provider credential, server-side only |
+| provider-specific credential variables | Every environment variable referenced by an enabled `Provider.credentialReference` record |
+| `PROVIDER_TIMEOUT_MS` | Recommended `15000` |
+| `MAX_MARKUP_BPS` | Approved business ceiling |
+| `CASHFREE_APP_ID` | Production merchant App ID |
+| `CASHFREE_SECRET_KEY` | Production secret, server-side only |
+| `CASHFREE_ENV` | `production` only after sandbox sign-off |
+| `CASHFREE_API_VERSION` | `2025-01-01`, the version pinned by this integration |
+| `CASHFREE_RETURN_URL` | `https://services.getfame360.com/payments/return?order_id={order_id}` |
+| `CASHFREE_NOTIFY_URL` | `https://api.services.getfame360.com/api/webhooks/cashfree` |
+| `CASHFREE_DEFAULT_CUSTOMER_PHONE` | Approved 10-digit fallback required by the checkout flow |
+| `CASHFREE_MIN_TOPUP_MINOR` | Approved minimum in paise |
+| `CASHFREE_MAX_TOPUP_MINOR` | Approved maximum in paise |
+| `CASHFREE_WEBHOOK_TOLERANCE_MS` | Recommended `300000` |
+| `REFILL_DEFAULT_GUARANTEE_DAYS` | Approved default, e.g. `30` |
+| `REFILL_COOLDOWN_HOURS` | Approved cooldown, e.g. `24` |
+| `REFILL_STATUS_POLL_MINUTES` | Recommended `5` |
+| `ORDER_STATUS_POLL_MINUTES` | Recommended `10` |
 
-Set `VITE_API_BASE_URL` to the deployed API origin plus `/api`. This is baked in
-at build time, so changing it requires a redeploy.
-
-## Backend environment variables
-
-Identical on Vercel and Railway except `REDIS_URL`. A missing or invalid value
-aborts startup — `getRuntimeConfig()` runs at module load and fails fast rather
-than serving requests in a half-configured state.
+### API browser/security settings
 
 | Variable | Value |
 |---|---|
-| `MONGO_URI` | Atlas connection string |
-| `JWT_SECRET` | Random string, minimum 32 characters |
-| `API_URL` | SMM provider API base URL |
-| `API_KEY` | SMM provider API key |
-| `REDIS_URL` | Private URL on Railway, public proxy URL on Vercel |
-| `BULLMQ_PREFIX` | `smm` — must match across API and worker |
-| `CASHFREE_APP_ID` | Cashfree App ID |
-| `CASHFREE_SECRET_KEY` | Cashfree Secret Key |
-| `CASHFREE_WEBHOOK_SECRET` | Same value as `CASHFREE_SECRET_KEY` |
-| `CASHFREE_ENV` | `sandbox`, then `production` |
-| `CASHFREE_API_VERSION` | `2026-01-01` |
-| `CASHFREE_RETURN_URL` | `https://<frontend>/payments/return?order_id={order_id}` |
-| `CASHFREE_NOTIFY_URL` | `https://<api>/api/webhooks/cashfree` |
-| `CASHFREE_DEFAULT_CUSTOMER_PHONE` | 10 digits |
-| `CASHFREE_MIN_TOPUP_MINOR` | `10000` (₹100) |
-| `CASHFREE_MAX_TOPUP_MINOR` | `10000000` (₹100,000) |
-| `CASHFREE_WEBHOOK_TOLERANCE_MS` | `300000` |
-| `REFILL_DEFAULT_GUARANTEE_DAYS` | `30` |
-| `REFILL_COOLDOWN_HOURS` | `24` |
-| `REFILL_STATUS_POLL_MINUTES` | `5` |
-| `ORDER_STATUS_POLL_MINUTES` | `10` |
-| `MAX_MARKUP_BPS` | `100000` |
-| `PROVIDER_TIMEOUT_MS` | `15000` |
-| `ALLOWED_ORIGINS` | Frontend origin, exactly, no trailing slash |
+| `ALLOWED_ORIGINS` | `https://services.getfame360.com` exactly, no trailing slash |
 | `COOKIE_SECURE` | `true` |
 | `COOKIE_SAME_SITE` | `none` |
 | `TRUST_PROXY` | `true` |
-| `NODE_ENV` | `production` |
 
-Frontend and API are separate Vercel projects on different origins, so cookies
-must be `SameSite=None; Secure`. `ALLOWED_ORIGINS` must match the frontend
-origin exactly or every browser request fails CORS.
+Do not set `COOKIE_DOMAIN` unless wider cross-subdomain sharing is intentionally required; host-only cookies reduce scope. Railway supplies `PORT`. `HOST` is optional and defaults to `0.0.0.0`.
 
-Cashfree signs webhooks with the same Secret Key used for API calls. There is no
-separate webhook secret to generate.
+The worker receives no browser traffic and does not operationally use cookie/CORS/proxy settings. The shared validator currently requires production `ALLOWED_ORIGINS`, so set the same value on the worker; cookie security and proxy settings may also be kept identical for configuration parity. All provider, Cashfree, MongoDB, Redis, pricing, timeout, refill, and polling values must match the API.
+
+### Frontend
+
+```text
+VITE_API_BASE_URL=https://api.services.getfame360.com/api
+```
+
+All browser API calls use credentials. No Cashfree or provider secret belongs in a `VITE_` variable.
+
+## MongoDB and migrations
+
+Use Atlas with replica-set transactions, a dedicated least-privilege user, backups, and tested restore procedures. Configure network access for Railway egress.
+
+Restore the latest backup to an isolated Atlas database and run from `backend/`:
+
+```text
+npm ci
+npm run verify:migration -- --capture-baseline migration-baseline-pre.json
+npm run migrate:production:dry-run
+npm run migrate:production
+npm run verify:migration -- --baseline migration-baseline-pre.json
+```
+
+The apply command stops at the first failure. Never run it automatically during deploy. See `docs/migrations/production-migration-runbook.md` for order, collections, counts, and recovery checks.
+
+Create the first administrator separately after migration. Pipe the password through standard input using `npm run create:admin -- --userId <id> --password-stdin`; do not put it in shell history or a repository file. The older `--password` form remains compatible but exposes the value in process arguments and should not be used in production.
 
 ## Cashfree
 
-1. Start in **Test Mode**.
-2. **Developers → API Keys** → copy App ID and Secret Key.
-3. **Developers → Webhooks** → add `https://<api>/api/webhooks/cashfree` and
-   subscribe to payment success and failure events.
+The create-order request uses a deterministic merchant order ID and stable `x-idempotency-key`. The webhook captures exact bytes before JSON parsing and verifies its signature before settlement. The browser return page only polls server state and cannot credit a wallet. The worker reconciliation scan recovers missed webhooks.
 
-## First deploy
+Configure `https://api.services.getfame360.com/api/webhooks/cashfree` and subscribe to the required payment events. Confirm the signature secret/header scheme and API version in sandbox before switching credentials.
 
-Run once against the target database, from a machine with `MONGO_URI` set:
+Duplicate credit is prevented by `Payment.creditedAt`, unique `cashfree-credit:<merchantOrderId>` wallet-ledger keys, webhook receipt uniqueness, a conditional payment update, and a MongoDB transaction.
 
-```
-cd backend
-npm run migrate:catalogue
-npm run migrate:job-dispatch
-npm run migrate:drip-feed
-npm run migrate:provider-sync-apply
-npm run migrate:order-reconciliation
-npm run migrate:wallet-minor
-npm run create:admin
-```
+## Order accounting and provider ambiguity
 
-Run these against a restored snapshot first and verify balances and order
-history reconcile. `migrate:wallet-minor` converts legacy floating-point
-balances to integer paise; existing customer balances are wrong until it runs.
+The current implementation follows option A: it transactionally debits the authoritative integer-paise wallet balance when the local order intent and durable dispatch are committed, before provider acceptance. The UI/event language calls this reserved, but the persisted funding state is `DEBITED`; it is not a separate spendable-balance reservation bucket.
 
-`create:admin` is the only way to obtain a first admin account. There is no
-public registration route, and `createUser` requires an existing admin.
+A definitive provider rejection performs an explicit idempotent refund and marks the order `PROVIDER_REJECTED`/`REFUNDED`. A timeout, transport ambiguity, interrupted claimed attempt, or acceptance followed by local persistence uncertainty becomes `RECONCILIATION_REQUIRED`; it is neither refunded nor submitted to another provider until an administrator records evidence that proves acceptance or non-acceptance. The reconciliation path has immutable audit records and an idempotent compensation key. This is equivalent in safety intent to the preferred state machine without relabeling historical states.
+
+## DNS and TLS
+
+Add `services.getfame360.com` to Vercel and use the exact DNS record Vercel displays. Add `api.services.getfame360.com` to the Railway API and use Railway's displayed record. Do not create public records for Redis or the worker. Wait for both TLS certificates before enabling production cookies or callbacks.
 
 ## Verification
 
-| Check | Expectation |
-|---|---|
-| `GET /health` | `200 {"status":"ok"}` |
-| `GET /ready` | `200` with `mongo: true, redis: true` |
-| Worker logs | `SMM background worker is ready` |
-| Login | Succeeds with the `create:admin` account |
-| Top-up | Cashfree sandbox checkout credits the wallet |
-| Order | Reaches the provider; status advances without manual refresh |
+After deployment, from `backend/`:
 
-If `/ready` reports `redis: false` on Vercel, the TCP proxy is not exposed or
-the public URL is wrong.
+```text
+$env:API_ORIGIN='https://api.services.getfame360.com'
+npm run verify:production
+```
 
-## Known behaviour on Vercel: webhook raw body
+This calls only `/health` and `/ready`. Admins can inspect `/api/admin/operations/diagnostics` for queue counts, worker heartbeat, durable pending dispatches, and reconciliation-required orders.
 
-Cashfree webhook signatures are computed over exact request bytes. Some
-serverless runtimes parse the request body before Express sees it, which leaves
-`express.raw()` with an empty buffer and makes every signature check fail.
+Perform these manual staging checks separately with unique idempotency/request IDs and recorded evidence:
 
-This degrades performance rather than losing money. The worker runs
-`scan-pending-payments` every 60 seconds, polls Cashfree directly, and credits
-the wallet through the same idempotent settlement path. Credits arrive within
-about a minute instead of instantly.
+1. Login/logout: verify `Secure`, `HttpOnly`, CSRF, credentialed CORS, and rejection of an unapproved origin.
+2. Cashfree sandbox top-up: verify one Payment, one ledger credit, one balance increase, and safe webhook replay.
+3. Order submission: use a low-value approved service; verify server price, one debit, one durable dispatch, and no browser-controlled provider ID.
+4. Provider submission: verify one provider order ID. Simulate timeout and verify `RECONCILIATION_REQUIRED` with no second submission.
+5. Order status: verify polling and terminal behavior.
+6. Wallet ledger: reconcile cached balance against ledger deltas and investigate every mismatch.
+7. Refill, if supported: verify eligibility, cooldown, idempotency, provider result, and polling.
 
-Double-crediting is prevented three ways: an early return on `payment.creditedAt`,
-a unique `WalletLedger` idempotency key of `cashfree-credit:<merchantOrderId>`,
-and a conditional update guarded on `creditedAt: null`.
-
-After deploying, check API logs for `Cashfree webhook raw body is empty`. If it
-appears, webhooks are not verifying and reconciliation is carrying top-ups.
-Fixing it means capturing raw bytes before the platform consumes them, or moving
-the webhook endpoint onto the Railway service.
-
-## Scaling notes
-
-- The worker must run continuously. Its silent death is a money-losing outage:
-  wallets are debited and orders never submitted. Alert on `/health` of the
-  Railway service.
-- Only one worker instance should run per environment. Job uniqueness is
-  protected by database indexes, but concurrent schedulers duplicate scan work.
-- Redis must keep `noeviction`. Evicted jobs are lost silently.
+Production remains blocked until restored-snapshot migrations, wallet reconciliation, Cashfree sandbox tests, the provider ambiguity test, monitoring alerts, an Atlas restore exercise, and owner approval are complete.

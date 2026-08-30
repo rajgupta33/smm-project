@@ -4,6 +4,7 @@ const userController = require('../controllers/userController');
 const refillController = require('../controllers/refillController');
 const ticketController = require('../controllers/ticketController');
 
+router.post('/orders/quote', userController.quoteOrder);
 router.post('/placeOrder', userController.placeOrder);
 router.get('/getOrders', userController.getOrders);
 router.get('/orders/:orderId', userController.getOrderTimeline);

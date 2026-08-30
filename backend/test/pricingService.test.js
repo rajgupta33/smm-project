@@ -114,25 +114,28 @@ test('order snapshots preserve the price and version used at order time', () => 
     assert.equal(first.sellingTotalMinor, 62500);
 });
 
-test('manual routing preserves the customer price and snapshots actual provider cost', async () => {
+test('manual routing applies markup to the selected provider offer cost', async () => {
     const snapshot = await priceRoutedService(
         { rate: 100, markupOverrideBps: null },
         { costRateMinor: 9000, pricingUnit: 1000 },
         5000,
         { settings: { globalMarkupBps: 2500, minimumMarginBps: 0, pricingUnit: 1000, currency: 'INR', version: 1 } }
     );
-    assert.equal(snapshot.sellingRateMinor, 12500);
-    assert.equal(snapshot.sellingTotalMinor, 62500);
+    assert.equal(snapshot.sellingRateMinor, 11250);
+    assert.equal(snapshot.sellingTotalMinor, 56250);
     assert.equal(snapshot.providerCostRateMinor, 9000);
     assert.equal(snapshot.providerCostTotalMinor, 45000);
-    assert.equal(snapshot.grossSpreadMinor, 17500);
+    assert.equal(snapshot.grossSpreadMinor, 11250);
 
-    await assert.rejects(priceRoutedService(
-        { rate: 100, markupOverrideBps: null },
-        { costRateMinor: 13000, pricingUnit: 1000 },
-        5000,
+    const example = await priceRoutedService(
+        { rate: 1, markupOverrideBps: null },
+        { costRateMinor: 10000, pricingUnit: 1000 },
+        1000,
         { settings: { globalMarkupBps: 2500, minimumMarginBps: 0, pricingUnit: 1000, currency: 'INR', version: 1 } }
-    ), (error) => error.code === 'ROUTED_MARGIN_BELOW_ZERO');
+    );
+    assert.equal(example.providerCostRateMinor, 10000);
+    assert.equal(example.sellingRateMinor, 12500);
+    assert.equal(example.sellingTotalMinor, 12500);
 });
 
 test('pricing models declare singleton and audit indexes plus immutable snapshots', () => {

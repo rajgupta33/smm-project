@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const bcrypt = require('bcrypt');
 const readline = require('node:readline/promises');
+const fs = require('node:fs');
 const { stdin, stdout } = require('node:process');
 const User = require('../models/User');
 const { connectToDatabase, disconnectFromDatabase } = require('../utils/serverlessDb');
@@ -13,11 +14,17 @@ function parseArgs(argv) {
         const token = argv[i];
         if (token === '--userId') args.userId = argv[++i];
         else if (token === '--password') args.password = argv[++i];
+        else if (token === '--password-stdin') args.passwordStdin = true;
     }
     return args;
 }
 
 async function promptForCredentials(existing) {
+    if (existing.passwordStdin) {
+        if (!existing.userId) throw new Error('--userId is required with --password-stdin');
+        const password = fs.readFileSync(0, 'utf8').replace(/\r?\n$/, '');
+        return { userId: existing.userId, password };
+    }
     if (existing.userId && existing.password) return existing;
 
     const rl = readline.createInterface({ input: stdin, output: stdout });

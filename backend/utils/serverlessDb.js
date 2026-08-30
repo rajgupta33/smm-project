@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const automaticSchemaChanges = process.env.NODE_ENV !== 'production'
+  && process.env.MONGOOSE_MIGRATION_MODE !== 'true';
 
 // Connection state
 let isConnected = false;
@@ -6,6 +8,8 @@ let connectionPromise = null;
 
 const connectOptions = {
   bufferCommands: false, // Disable mongoose buffering
+  autoCreate: automaticSchemaChanges,
+  autoIndex: automaticSchemaChanges,
   maxPoolSize: 5, // Smaller pool size for serverless
   minPoolSize: 1, // Maintain at least 1 connection
   serverSelectionTimeoutMS: 5000, // Fail fast

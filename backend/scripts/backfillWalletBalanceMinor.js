@@ -1,4 +1,5 @@
 require('dotenv').config();
+require('./migrationSafety');
 
 const User = require('../models/User');
 const { connectToDatabase, disconnectFromDatabase } = require('../utils/serverlessDb');

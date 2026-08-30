@@ -19,9 +19,14 @@
     "migrate:catalogue": "node scripts/mapLegacyServicesToCatalogue.js",
     "migrate:job-dispatch": "node scripts/backfillJobDispatches.js",
     "migrate:drip-feed": "node scripts/migrateDripFeedState.js",
-    "migrate:provider-sync-apply": "node scripts/ensureProviderSyncApplicationIndexes.js",
-    "migrate:order-reconciliation": "node scripts/ensureOrderReconciliationIndexes.js",
+    "migrate:provider-sync-apply": "node scripts/ensureProviderSyncApplicationIndexes.js --apply",
+    "migrate:order-reconciliation": "node scripts/ensureOrderReconciliationIndexes.js --apply",
     "migrate:wallet-minor": "node scripts/backfillWalletBalanceMinor.js",
+    "migrate:indexes": "node scripts/ensureProductionIndexes.js --apply",
+    "migrate:production": "node scripts/runProductionMigrations.js --apply",
+    "migrate:production:dry-run": "node scripts/runProductionMigrations.js",
+    "verify:migration": "node scripts/verifyMigration.js",
+    "verify:production": "node scripts/verifyProduction.js",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {

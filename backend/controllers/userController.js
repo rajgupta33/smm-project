@@ -4,7 +4,6 @@ const Order = require('../models/Order');
 const Transaction = require('../models/Transaction');
 const WalletLedger = require('../models/WalletLedger');
 const Service = require('../models/Service');
-const CatalogueService = require('../models/CatalogueService');
 const ManualTask = require('../models/ManualTask');
 const RefillRequest = require('../models/RefillRequest');
 const Provider = require('../models/Provider');
@@ -13,15 +12,11 @@ const mongoose = require('mongoose');
 const { connectToDatabase } = require('../utils/serverlessDb');
 const bcrypt = require('bcrypt');
 const { buildUserIdQuery } = require('../utils/userId');
-const {
-    validateOrderRequest,
-    validateServiceForUser,
-} = require('../services/orderValidationService');
+const { validateOrderRequest } = require('../services/orderValidationService');
 const { appendOrderEvent } = require('../services/orderEventService');
 const { debitWallet } = require('../services/walletService');
 const {
     getPricingSettings,
-    priceRoutedService,
     toCustomerService,
 } = require('../services/pricingService');
 const {
@@ -34,7 +29,10 @@ const {
     orderDispatchDocument,
 } = require('../services/jobDispatchService');
 const { createDripFeedSchedule } = require('../services/dripFeedService');
-const { selectManualPriorityOffer } = require('../services/providerRoutingService');
+const {
+    resolveOrderPricing,
+    toCustomerQuote,
+} = require('../services/orderPricingResolver');
 const { getRuntimeConfig } = require('../config/runtimeConfig');
 
 function assertMatchingOrderReplay(existingOrder, validatedRequest) {
@@ -83,6 +81,35 @@ class UserController {
         } catch (error) {
             console.error('Error changing password:', error);
             res.status(500).json({ msg: "Internal server error" });
+        }
+    }
+
+    /**
+     * Returns the authoritative price for a prospective order.
+     *
+     * Read-only: no wallet mutation, no order record, no provider call. A quote is
+     * not authorization -- placeOrder recalculates from the same resolver inside
+     * its own transaction before debiting.
+     */
+    async quoteOrder(req, res) {
+        try {
+            const validatedRequest = validateOrderRequest(req.body);
+            const user = await User.findOne(buildUserIdQuery(req.user.id));
+            if (!user) {
+                return res.status(401).json({ success: false, message: 'Authenticated user not found' });
+            }
+            const { pricingSnapshot } = await resolveOrderPricing({ validatedRequest, user });
+            return res.status(200).json({
+                success: true,
+                data: toCustomerQuote(pricingSnapshot, validatedRequest),
+            });
+        } catch (error) {
+            const status = error.statusCode || 400;
+            return res.status(status).json({
+                success: false,
+                message: error.message || 'Unable to price this order',
+                code: error.code || 'QUOTE_FAILED',
+            });
         }
     }
 
@@ -234,62 +261,20 @@ class UserController {
                     throw error;
                 }
 
-                const selectedService = await Service.findOne({
-                    serviceId: validatedRequest.serviceId,
-                }).session(session);
-                if (!selectedService) {
-                    const error = new Error('Service not found');
-                    error.statusCode = 400;
-                    error.code = 'INVALID_SERVICE';
-                    throw error;
-                }
-                const catalogueService = selectedService.catalogueServiceId
-                    ? await CatalogueService.findById(selectedService.catalogueServiceId).session(session)
-                    : null;
-                if (catalogueService && (!catalogueService.active || catalogueService.visibility === 'HIDDEN')) {
-                    const error = new Error('Service is not available');
-                    error.statusCode = 400;
-                    error.code = 'SERVICE_UNAVAILABLE';
-                    throw error;
-                }
-                const isManual = catalogueService?.fulfilmentType === 'MANUAL';
-                const isDripFeed = validatedRequest.runs > 1 && !isManual;
-                if (isManual && validatedRequest.runs > 1) {
-                    const error = new Error('Drip-feed scheduling is not available for manual services');
-                    error.statusCode = 400;
-                    error.code = 'DRIP_FEED_NOT_SUPPORTED';
-                    throw error;
-                }
-                const validationResult = validateServiceForUser(
+                // Shared with the customer quote endpoint so the price shown before
+                // paying is produced by the same code path that charges.
+                const {
                     selectedService,
-                    freshUser,
-                    validatedRequest.quantity,
-                    { requireProviderMapping: !isManual }
-                );
-                let providerServiceId = validationResult.providerServiceId;
-                let providerOffer = null;
-                if (!isManual && catalogueService) {
-                    const routing = await selectManualPriorityOffer({
-                        catalogueService,
-                        providerServiceId,
-                        quantity: validatedRequest.quantity,
-                        session,
-                    });
-                    providerOffer = routing.offer;
-                    providerServiceId = providerOffer.providerServiceId;
-                }
-                const pricingSnapshot = await priceRoutedService(
-                    selectedService,
+                    isManual,
+                    isDripFeed,
                     providerOffer,
-                    validatedRequest.totalQuantity,
-                    { session }
-                );
-                if (isDripFeed && pricingSnapshot.sellingTotalMinor < validatedRequest.runs) {
-                    const error = new Error('Order value is too small for the requested number of drip-feed runs');
-                    error.statusCode = 400;
-                    error.code = 'DRIP_FEED_VALUE_TOO_SMALL';
-                    throw error;
-                }
+                    providerServiceId,
+                    pricingSnapshot,
+                } = await resolveOrderPricing({
+                    validatedRequest,
+                    user: freshUser,
+                    session,
+                });
 
                 const walletResult = await debitWallet({
                     userId: freshUser._id,

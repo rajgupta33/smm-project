@@ -169,26 +169,37 @@ async function priceService(service, quantity, options = {}) {
 }
 
 async function priceRoutedService(service, offer, quantity, options = {}) {
-    const snapshot = await priceService(service, quantity, options);
-    if (!offer) return snapshot;
+    if (!offer) return priceService(service, quantity, options);
+    const settings = options.settings || await getPricingSettings({ session: options.session });
     assertNonNegativeSafeInteger(offer.costRateMinor, 'provider offer costRateMinor');
-    const providerCostTotalMinor = calculateOrderTotal(
-        offer.costRateMinor,
-        quantity,
+    if (!Number.isSafeInteger(offer.pricingUnit) || offer.pricingUnit < 1) {
+        throw new PricingError('provider offer pricingUnit is invalid', 'INVALID_PRICING_CONFIGURATION');
+    }
+    const pricingUnit = settings.pricingUnit || DEFAULT_PRICING_UNIT;
+    const providerCostRateMinor = ceilDivide(
+        safeMultiply(offer.costRateMinor, pricingUnit),
         offer.pricingUnit
     );
-    if (providerCostTotalMinor > snapshot.sellingTotalMinor) {
-        throw new PricingError(
-            'Selected provider cost exceeds the authoritative customer price',
-            'ROUTED_MARGIN_BELOW_ZERO',
-            409
-        );
-    }
+    const markupBps = getEffectiveMarkup(service, settings);
+    const sellingRateMinor = calculateSellingRate(providerCostRateMinor, markupBps);
+    const providerCostTotalMinor = calculateOrderTotal(
+        providerCostRateMinor,
+        quantity,
+        pricingUnit
+    );
+    const sellingTotalMinor = calculateOrderTotal(sellingRateMinor, quantity, pricingUnit);
     return {
-        ...snapshot,
-        providerCostRateMinor: offer.costRateMinor,
+        providerCostRateMinor,
+        sellingRateMinor,
+        markupBps,
+        pricingUnit,
+        quantity,
         providerCostTotalMinor,
-        grossSpreadMinor: snapshot.sellingTotalMinor - providerCostTotalMinor,
+        sellingTotalMinor,
+        grossSpreadMinor: sellingTotalMinor - providerCostTotalMinor,
+        currency: settings.currency || 'INR',
+        pricingVersion: settings.version,
+        pricedAt: options.pricedAt || new Date(),
     };
 }
 

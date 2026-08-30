@@ -4,6 +4,7 @@ const DripFeedOrder = require('../models/DripFeedOrder');
 const DripFeedRun = require('../models/DripFeedRun');
 const { resolveOrderReconciliation } = require('../services/orderReconciliationService');
 const { randomUUID } = require('crypto');
+const { getQueueDiagnostics, getRedisReadiness, getWorkerHeartbeat } = require('../queues/queueRegistry');
 
 function safeLimit(value, fallback = 50) {
     const parsed = Number.parseInt(value, 10);
@@ -11,6 +12,28 @@ function safeLimit(value, fallback = 50) {
 }
 
 class OperationsController {
+    async getDiagnostics(req, res) {
+        void req;
+        try {
+            const [redis, worker, queues, durablePending, reconciliationRequired] = await Promise.all([
+                getRedisReadiness(),
+                getWorkerHeartbeat(),
+                getQueueDiagnostics(),
+                JobDispatch.countDocuments({ status: { $in: ['PENDING', 'DISPATCHING'] } }),
+                Order.countDocuments({ lifecycleStatus: 'RECONCILIATION_REQUIRED' }),
+            ]);
+            return res.status(200).json({
+                success: true,
+                data: { redis, worker, queues, durablePending, reconciliationRequired },
+            });
+        } catch {
+            return res.status(503).json({
+                success: false,
+                error: { code: 'OPERATIONS_DIAGNOSTICS_UNAVAILABLE', message: 'Operations diagnostics are unavailable' },
+            });
+        }
+    }
+
     async getJobDispatches(req, res) {
         const allowedStatuses = ['PENDING', 'DISPATCHING', 'ENQUEUED'];
         if (req.query.status && !allowedStatuses.includes(req.query.status)) {

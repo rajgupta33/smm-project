@@ -21,6 +21,9 @@ function OrderForm() {
   const [loading, setLoading] = useState(true); // State for loading indicator
   const [error, setError] = useState(null); // State for error handling
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+  const [quote, setQuote] = useState(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState(null);
 
   // Fetch services data on component mount
   useEffect(() => {
@@ -49,23 +52,44 @@ function OrderForm() {
   const minQuantity = selectedProduct ? parseInt(selectedProduct.min, 10) : 1;
   const maxQuantity = selectedProduct ? parseInt(selectedProduct.max, 10) : 100000;
 
-  // Effect to calculate total amount whenever product or quantity changes
+  // The backend is the only authority on price. Ask it for a quote rather than
+  // multiplying the catalogue rate here, so the amount shown before paying is
+  // produced by the same code path that debits the wallet at checkout.
   useEffect(() => {
-    if (selectedProduct) {
-      // Ensure rate is parsed as a number
-      const rate = parseFloat(selectedProduct.rate/1000);
-      const calculatedTotal = formData.quantity * formData.runs * rate;
-      setFormData(prevData => ({
-        ...prevData,
-        totalAmount: calculatedTotal,
-      }));
-    } else {
-      setFormData(prevData => ({
-        ...prevData,
-        totalAmount: 0,
-      }));
+    if (!formData.serviceId || !formData.quantity || formData.quantity < 1) {
+      setQuote(null);
+      setQuoteError(null);
+      setQuoteLoading(false);
+      return undefined;
     }
-  }, [formData.serviceId, formData.quantity, formData.runs, selectedProduct]);
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setQuoteLoading(true);
+      const result = await serviceApi.quoteOrder({
+        serviceId: formData.serviceId,
+        quantity: formData.quantity,
+        runs: formData.runs,
+        interval: formData.runs > 1 ? formData.interval : undefined,
+        linkInput: formData.linkInput || undefined,
+      }, { signal: controller.signal });
+
+      if (controller.signal.aborted || result.canceled) return;
+      if (result.success) {
+        setQuote(result.data);
+        setQuoteError(null);
+      } else {
+        setQuote(null);
+        setQuoteError(result.message || 'Could not price this order');
+      }
+      setQuoteLoading(false);
+    }, 400);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [formData.serviceId, formData.quantity, formData.runs, formData.interval, formData.linkInput]);
 
   // Handle input changes
   const handleChange = (e) => {
@@ -208,6 +232,7 @@ function OrderForm() {
           closeButton: true,
         });
         setFormData({ linkInput: '', serviceId: '', quantity: 1, runs: 1, interval: 60, notes: '', totalAmount: 0 });
+        setQuote(null);
         setIdempotencyKey(crypto.randomUUID());
         return;
       }
@@ -223,6 +248,7 @@ function OrderForm() {
           closeButton: true,
         });
         setFormData({ linkInput: '', serviceId: '', quantity: 1, runs: 1, interval: 60, notes: '', totalAmount: 0 });
+        setQuote(null);
         setIdempotencyKey(crypto.randomUUID());
         return;
       }
@@ -238,6 +264,7 @@ function OrderForm() {
           closeButton: true,
         });
         setFormData({ linkInput: '', serviceId: '', quantity: 1, runs: 1, interval: 60, notes: '', totalAmount: 0 });
+        setQuote(null);
         setIdempotencyKey(crypto.randomUUID());
         return;
       }
@@ -452,18 +479,26 @@ function OrderForm() {
         </div>
 
 
-        {/* Total Amount Display */}
+        {/* Total Amount Display — the server's authoritative price */}
         <div className="flex justify-between items-center bg-gray-700 p-4 rounded-lg border border-purple-600">
           <span className="text-purple-300 text-lg font-semibold">Total Amount:</span>
-          <span className="text-white text-2xl font-bold">
-            ₹{formData.totalAmount}
+          <span className="text-white text-2xl font-bold" data-testid="order-total">
+            {quoteLoading
+              ? 'Calculating…'
+              : quote
+                ? `₹${(quote.totalMinor / 100).toFixed(2)}`
+                : '—'}
           </span>
         </div>
+        {quoteError && (
+          <p className="text-red-400 text-sm" role="alert">{quoteError}</p>
+        )}
 
         {/* Submit Button */}
         <button
           type="submit"
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 focus:ring-offset-gray-800"
+          disabled={!quote || quoteLoading}
+          className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed disabled:hover:scale-100 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 focus:ring-offset-gray-800"
         >
           Submit Order
         </button>

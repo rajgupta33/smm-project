@@ -1,5 +1,7 @@
 require('dotenv').config();
+require('./migrationSafety');
 
+const mongoose = require('mongoose');
 const DripFeedOrder = require('../models/DripFeedOrder');
 const DripFeedRun = require('../models/DripFeedRun');
 const Order = require('../models/Order');
@@ -11,12 +13,13 @@ function classifyLegacyDripFeed(parent) {
     return 'LEGACY_RECONCILIATION_REQUIRED';
 }
 
-async function migrateParent(parent, action, migratedAt) {
+async function migrateParent(parent, action, migratedAt, session) {
     if (action === 'CURRENT') return;
     if (action === 'LEGACY_TERMINAL') {
         await DripFeedOrder.updateOne(
             { _id: parent._id, workflowVersion: { $ne: 2 } },
-            { $set: { workflowVersion: 2 } }
+            { $set: { workflowVersion: 2 } },
+            { session }
         );
         return;
     }
@@ -31,7 +34,8 @@ async function migrateParent(parent, action, migratedAt) {
                     status: 'RECONCILIATION_REQUIRED',
                     nextRunAt: null,
                 },
-            }
+            },
+            { session }
         ),
         DripFeedRun.updateMany(
             { parentId: parent._id, status: { $in: ['PENDING', 'REJECTED'] } },
@@ -47,7 +51,8 @@ async function migrateParent(parent, action, migratedAt) {
                         errorMessage: reason,
                     },
                 },
-            }
+            },
+            { session }
         ),
         Order.updateOne(
             { _id: parent.orderId, lifecycleStatus: 'DRIP_FEED' },
@@ -58,7 +63,8 @@ async function migrateParent(parent, action, migratedAt) {
                     reconciliationReason: reason,
                     reconciliationRequiredAt: migratedAt,
                 },
-            }
+            },
+            { session }
         ),
     ]);
 }
@@ -80,7 +86,14 @@ async function run() {
         if (action === 'CURRENT') summary.current += 1;
         if (action === 'LEGACY_TERMINAL') summary.legacyTerminal += 1;
         if (action === 'LEGACY_RECONCILIATION_REQUIRED') summary.reconciliationRequired += 1;
-        if (applyChanges) await migrateParent(parent, action, migratedAt);
+        if (applyChanges) {
+            const session = await mongoose.startSession();
+            try {
+                await session.withTransaction(() => migrateParent(parent, action, migratedAt, session));
+            } finally {
+                await session.endSession();
+            }
+        }
     }
     console.log(JSON.stringify(summary, null, 2));
 }

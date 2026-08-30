@@ -32,9 +32,8 @@ function validEnvironment(overrides = {}) {
         REDIS_URL: 'rediss://queue.example:6380',
         CASHFREE_APP_ID: 'cashfree-app-id',
         CASHFREE_SECRET_KEY: 'cashfree-secret-key',
-        CASHFREE_WEBHOOK_SECRET: 'cashfree-webhook-secret',
         CASHFREE_ENV: 'production',
-        CASHFREE_API_VERSION: '2026-01-01',
+        CASHFREE_API_VERSION: '2025-01-01',
         CASHFREE_RETURN_URL: 'https://app.example/payments/return?order_id={order_id}',
         CASHFREE_NOTIFY_URL: 'https://api.example/api/webhooks/cashfree',
         CASHFREE_DEFAULT_CUSTOMER_PHONE: '9999999999',
@@ -48,7 +47,7 @@ function validEnvironment(overrides = {}) {
 test('runtime configuration requires every secret and endpoint', () => {
     for (const name of [
         'MONGO_URI', 'JWT_SECRET', 'API_URL', 'API_KEY', 'REDIS_URL',
-        'CASHFREE_APP_ID', 'CASHFREE_SECRET_KEY', 'CASHFREE_WEBHOOK_SECRET',
+        'CASHFREE_APP_ID', 'CASHFREE_SECRET_KEY',
         'CASHFREE_ENV', 'CASHFREE_API_VERSION', 'CASHFREE_RETURN_URL',
         'CASHFREE_NOTIFY_URL', 'CASHFREE_DEFAULT_CUSTOMER_PHONE',
     ]) {
@@ -101,5 +100,12 @@ test('production Cashfree callback URLs require HTTPS', () => {
     assert.throws(
         () => getRuntimeConfig(validEnvironment({ CASHFREE_NOTIFY_URL: 'http://api.example/webhook' })),
         /must use https/
+    );
+});
+
+test('Cashfree API version is pinned to the integration version', () => {
+    assert.throws(
+        () => getRuntimeConfig(validEnvironment({ CASHFREE_API_VERSION: '2026-01-01' })),
+        /must be 2025-01-01/
     );
 });

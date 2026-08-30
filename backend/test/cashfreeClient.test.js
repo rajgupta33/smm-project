@@ -4,7 +4,7 @@ const test = require('node:test');
 const { baseUrl, createCashfreeClient, safeSnapshot } = require('../services/cashfreeClient');
 
 const config = {
-    environment: 'sandbox', apiVersion: '2026-01-01',
+    environment: 'sandbox', apiVersion: '2025-01-01',
     appId: 'app-id', secretKey: 'secret-key',
 };
 
@@ -21,7 +21,7 @@ test('Cashfree client uses the current sandbox endpoint, API version and idempot
     });
     await client.createOrder({ body: { order_id: 'pay_1' }, idempotencyKey: 'uuid-key' });
     assert.equal(request.url, 'https://sandbox.cashfree.com/pg/orders');
-    assert.equal(request.options.headers['x-api-version'], '2026-01-01');
+    assert.equal(request.options.headers['x-api-version'], '2025-01-01');
     assert.equal(request.options.headers['x-client-id'], 'app-id');
     assert.equal(request.options.headers['x-client-secret'], 'secret-key');
     assert.equal(request.options.headers['x-idempotency-key'], 'uuid-key');

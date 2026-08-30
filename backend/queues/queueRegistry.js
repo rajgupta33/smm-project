@@ -8,6 +8,7 @@ const PAYMENT_RECONCILE_QUEUE = 'payment-reconcile';
 const REFILL_QUEUE = 'provider-refill';
 const DRIP_FEED_QUEUE = 'drip-feed-submit';
 const ORDER_STATUS_QUEUE = 'order-status-scan';
+const WORKER_HEARTBEAT_TTL_SECONDS = 45;
 
 let producerConnection;
 let queues;
@@ -65,17 +66,70 @@ function createWorkerConnection() {
     return connection;
 }
 
-async function checkRedisConnection(timeoutMs = 2000) {
+function workerHeartbeatKey(config = getRuntimeConfig()) {
+    return `${config.bullmqPrefix}:monitor:worker-heartbeat`;
+}
+
+function parseWorkerHeartbeat(value, now = Date.now()) {
+    if (!value) return { healthy: false, lastHeartbeatAt: null, ageMs: null };
+    try {
+        const heartbeat = JSON.parse(value);
+        const timestamp = new Date(heartbeat.timestamp).getTime();
+        if (!Number.isFinite(timestamp)) throw new Error('invalid timestamp');
+        const ageMs = Math.max(0, now - timestamp);
+        return {
+            healthy: ageMs <= WORKER_HEARTBEAT_TTL_SECONDS * 1000,
+            lastHeartbeatAt: new Date(timestamp).toISOString(),
+            ageMs,
+            workerId: heartbeat.workerId || null,
+        };
+    } catch {
+        return { healthy: false, lastHeartbeatAt: null, ageMs: null };
+    }
+}
+
+async function writeWorkerHeartbeat(connection, workerId) {
+    const value = JSON.stringify({ workerId, timestamp: new Date().toISOString() });
+    await connection.set(workerHeartbeatKey(), value, 'EX', WORKER_HEARTBEAT_TTL_SECONDS);
+}
+
+async function getWorkerHeartbeat() {
+    const value = await getProducerConnection().get(workerHeartbeatKey());
+    return parseWorkerHeartbeat(value);
+}
+
+async function getQueueDiagnostics() {
+    const result = {};
+    for (const [name, queue] of getQueues()) {
+        result[name] = await queue.getJobCounts('waiting', 'active', 'delayed', 'failed', 'completed');
+    }
+    return result;
+}
+
+async function getRedisReadiness(timeoutMs = 2000) {
     try {
         const connection = getProducerConnection();
-        const pong = await Promise.race([
-            connection.ping(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Redis ping timed out')), timeoutMs)),
+        const [pong, policyResult] = await Promise.race([
+            Promise.all([
+                connection.ping(),
+                connection.config('GET', 'maxmemory-policy'),
+            ]),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Redis readiness timed out')), timeoutMs)),
         ]);
-        return pong === 'PONG';
+        const maxmemoryPolicy = Array.isArray(policyResult) ? policyResult[1] : null;
+        return {
+            connected: pong === 'PONG',
+            maxmemoryPolicy,
+            noEviction: maxmemoryPolicy === 'noeviction',
+        };
     } catch {
-        return false;
+        return { connected: false, maxmemoryPolicy: null, noEviction: false };
     }
+}
+
+async function checkRedisConnection(timeoutMs = 2000) {
+    const readiness = await getRedisReadiness(timeoutMs);
+    return readiness.connected;
 }
 
 async function closeProducerQueues() {
@@ -95,6 +149,12 @@ module.exports = {
     checkRedisConnection,
     closeProducerQueues,
     createWorkerConnection,
+    getQueueDiagnostics,
     getProducerConnection,
     getQueue,
+    getRedisReadiness,
+    getWorkerHeartbeat,
+    parseWorkerHeartbeat,
+    WORKER_HEARTBEAT_TTL_SECONDS,
+    writeWorkerHeartbeat,
 };

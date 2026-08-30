@@ -40,6 +40,7 @@ router.get('/providerSync/runs', catalogueController.getSyncRuns);
 router.get('/providerSync/runs/:runId', catalogueController.getSyncRun);
 router.post('/providerSync/runs/:runId/apply', catalogueController.applySyncRun);
 router.get('/operations/jobDispatches', operationsController.getJobDispatches);
+router.get('/operations/diagnostics', operationsController.getDiagnostics);
 router.get('/operations/reconciliationOrders', operationsController.getReconciliationOrders);
 router.post('/operations/reconciliationOrders/:orderId/resolve', operationsController.resolveReconciliationOrder);
 router.get('/payments', paymentController.listAdmin);

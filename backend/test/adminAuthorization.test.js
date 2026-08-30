@@ -9,9 +9,8 @@ process.env.API_KEY = 'test-provider-key';
 process.env.REDIS_URL = 'redis://127.0.0.1:6379';
 process.env.CASHFREE_APP_ID = 'test-cashfree-app';
 process.env.CASHFREE_SECRET_KEY = 'test-cashfree-secret';
-process.env.CASHFREE_WEBHOOK_SECRET = 'test-cashfree-webhook-secret';
 process.env.CASHFREE_ENV = 'sandbox';
-process.env.CASHFREE_API_VERSION = '2026-01-01';
+process.env.CASHFREE_API_VERSION = '2025-01-01';
 process.env.CASHFREE_RETURN_URL = 'http://localhost:5173/payments/return?order_id={order_id}';
 process.env.CASHFREE_NOTIFY_URL = 'https://example.invalid/api/webhooks/cashfree';
 process.env.CASHFREE_DEFAULT_CUSTOMER_PHONE = '9999999999';
@@ -47,6 +46,7 @@ const adminRoutes = [
     ['GET', '/api/admin/providerSync/runs/507f1f77bcf86cd799439011'],
     ['POST', '/api/admin/providerSync/runs/507f1f77bcf86cd799439011/apply'],
     ['GET', '/api/admin/operations/jobDispatches'],
+    ['GET', '/api/admin/operations/diagnostics'],
     ['GET', '/api/admin/operations/reconciliationOrders'],
     ['POST', '/api/admin/operations/reconciliationOrders/507f1f77bcf86cd799439011/resolve'],
     ['GET', '/api/admin/payments'],

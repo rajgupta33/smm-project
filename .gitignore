@@ -220,3 +220,5 @@ Thumbs.db
 yarn.lock
 pnpm-lock.yaml
 .codex_docx_qa_*/
+# Local migration verification baselines contain database record identifiers.
+backend/migration-baseline*.json

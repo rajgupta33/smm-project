@@ -1,4 +1,5 @@
 require('dotenv').config();
+require('./migrationSafety');
 
 const JobDispatch = require('../models/JobDispatch');
 const Order = require('../models/Order');

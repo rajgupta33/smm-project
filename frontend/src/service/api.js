@@ -414,6 +414,25 @@ export const serviceApi = {
     }
   },
 
+  quoteOrder: async (orderData, { signal } = {}) => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/user/orders/quote`, orderData, {
+        withCredentials: true,
+        signal,
+      });
+      return { success: true, data: response.data.data };
+    } catch (error) {
+      if (axiosLibrary.isCancel?.(error) || error.name === 'CanceledError') {
+        return { success: false, canceled: true };
+      }
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message,
+        code: error.response?.data?.code,
+      };
+    }
+  },
+
   placeOrder: async (orderData, idempotencyKey) => {
     try {
       const response = await axios.post(`${API_BASE_URL}/user/placeOrder`, orderData, {

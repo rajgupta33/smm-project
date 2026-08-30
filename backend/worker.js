@@ -1,11 +1,13 @@
 require('dotenv').config();
 
+const { randomUUID } = require('crypto');
 const { UnrecoverableError, Worker } = require('bullmq');
 const { getRuntimeConfig } = require('./config/runtimeConfig');
 const { connectToDatabase, disconnectFromDatabase } = require('./utils/serverlessDb');
 const {
     DRIP_FEED_QUEUE, ORDER_QUEUE, ORDER_STATUS_QUEUE, PAYMENT_RECONCILE_QUEUE,
     PROVIDER_SYNC_QUEUE, REFILL_QUEUE, createWorkerConnection, closeProducerQueues, getQueue,
+    writeWorkerHeartbeat,
 } = require('./queues/queueRegistry');
 const { dispatchPendingJobs } = require('./services/jobDispatchService');
 const { scanOrderStatuses } = require('./services/orderStatusService');
@@ -22,6 +24,7 @@ async function startWorker() {
     const config = getRuntimeConfig();
     await connectToDatabase();
     const connection = createWorkerConnection();
+    const workerId = process.env.RAILWAY_REPLICA_ID || process.env.RAILWAY_SERVICE_ID || randomUUID();
     const workerOptions = { connection, prefix: config.bullmqPrefix, concurrency: 5 };
     const workers = [
         new Worker(DRIP_FEED_QUEUE, async (job) => {
@@ -77,7 +80,7 @@ async function startWorker() {
     );
     await getQueue(REFILL_QUEUE).upsertJobScheduler(
         'refill-status-reconciliation',
-        { every: 60000 },
+        { every: config.refill.statusPollMinutes * 60 * 1000 },
         {
             name: 'scan-refills', data: {},
             opts: {
@@ -89,7 +92,7 @@ async function startWorker() {
     );
     await getQueue(ORDER_STATUS_QUEUE).upsertJobScheduler(
         'order-status-polling',
-        { every: 60000 },
+        { every: config.orderStatus.pollMinutes * 60 * 1000 },
         {
             name: 'scan-order-status', data: {},
             opts: {
@@ -108,6 +111,12 @@ async function startWorker() {
     }
 
     await dispatchPendingJobs();
+    await writeWorkerHeartbeat(connection, workerId);
+    const heartbeatTimer = setInterval(() => {
+        writeWorkerHeartbeat(connection, workerId)
+            .catch((error) => console.error('Worker heartbeat failed:', error.message));
+    }, 15000);
+    heartbeatTimer.unref();
     const dispatchTimer = setInterval(() => {
         dispatchPendingJobs().catch((error) => console.error('Outbox dispatch failed:', error.message));
     }, 5000);
@@ -118,6 +127,7 @@ async function startWorker() {
         shuttingDown = true;
         console.log(`Received ${signal}. Closing background workers...`);
         clearInterval(dispatchTimer);
+        clearInterval(heartbeatTimer);
         await Promise.all(workers.map((worker) => worker.close()));
         await closeProducerQueues();
         await connection.quit();

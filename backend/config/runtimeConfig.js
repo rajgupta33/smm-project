@@ -72,6 +72,11 @@ function getRuntimeConfig(env = process.env) {
     if (!['sandbox', 'production'].includes(cashfreeEnvironment)) {
         throw new Error('CASHFREE_ENV must be sandbox or production');
     }
+    const cashfreeApiVersion = required(env, 'CASHFREE_API_VERSION');
+    if (cashfreeApiVersion !== '2025-01-01') {
+        throw new Error('CASHFREE_API_VERSION must be 2025-01-01 for this integration');
+    }
+    const cashfreeSecretKey = required(env, 'CASHFREE_SECRET_KEY');
     const cashfreeMinTopupMinor = positiveIntegerEnv(env, 'CASHFREE_MIN_TOPUP_MINOR', 10000);
     const cashfreeMaxTopupMinor = positiveIntegerEnv(env, 'CASHFREE_MAX_TOPUP_MINOR', 10000000);
     if (cashfreeMaxTopupMinor < cashfreeMinTopupMinor) {
@@ -99,10 +104,10 @@ function getRuntimeConfig(env = process.env) {
         bullmqPrefix: env.BULLMQ_PREFIX?.trim() || 'smm',
         cashfree: {
             appId: required(env, 'CASHFREE_APP_ID'),
-            secretKey: required(env, 'CASHFREE_SECRET_KEY'),
-            webhookSecret: required(env, 'CASHFREE_WEBHOOK_SECRET'),
+            secretKey: cashfreeSecretKey,
+            webhookSecret: cashfreeSecretKey,
             environment: cashfreeEnvironment,
-            apiVersion: required(env, 'CASHFREE_API_VERSION'),
+            apiVersion: cashfreeApiVersion,
             returnUrl: cashfreeReturnUrl,
             notifyUrl: cashfreeNotifyUrl,
             defaultCustomerPhone: cashfreeCustomerPhone,

@@ -37,9 +37,8 @@ All `CASHFREE_*` settings in `backend/env.example` are server-only. Production
 return and notify URLs must use HTTPS. `CASHFREE_DEFAULT_CUSTOMER_PHONE` is a
 temporary merchant-approved fallback because the legacy user schema has no phone;
 replace it with verified per-customer contact data when that additive field ships.
-Set `CASHFREE_WEBHOOK_SECRET` to the secret Cashfree uses for PG webhook HMAC
-verification (normally the merchant PG secret key unless Cashfree has configured a
-distinct webhook secret for the account).
+Webhook HMAC verification uses `CASHFREE_SECRET_KEY`, matching Cashfree's Payment
+Gateway webhook contract. There is no separate webhook-secret variable.
 
 The amount check is deliberately strict: the Cashfree order and successful payment
 must both equal the local amount and use INR. Do not enable offers that change the

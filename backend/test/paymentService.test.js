@@ -32,6 +32,15 @@ test('top-up parsing stores paise and enforces configured server limits', () => 
     assert.throws(() => parseTopupAmount('100.001', config), /two decimal/);
 });
 
+test('a configured 1000-paise minimum permits exactly a ten-rupee top-up', () => {
+    const config = { minTopupMinor: 1000, maxTopupMinor: 100000 };
+    assert.equal(parseTopupAmount('10.00', config), 1000);
+    assert.throws(
+        () => parseTopupAmount('9.99', config),
+        (error) => error.code === 'PAYMENT_AMOUNT_OUT_OF_RANGE'
+    );
+});
+
 test('Cashfree identifiers are stable per user and client idempotency key', () => {
     assert.deepEqual(identifiers('user-1', 'request-1'), identifiers('user-1', 'request-1'));
     assert.notEqual(identifiers('user-1', 'request-1').merchantOrderId,

@@ -7,7 +7,9 @@ const { connectToDatabase, disconnectFromDatabase } = require('./utils/serverles
 const { authenticate, getJwtSecret, requireAdmin } = require('./middelwares/auth');
 const { getRuntimeConfig } = require('./config/runtimeConfig');
 const { csrfProtection } = require('./middelwares/csrf');
-const { checkRedisConnection, closeProducerQueues } = require('./queues/queueRegistry');
+const {
+  closeProducerQueues, getRedisReadiness, getWorkerHeartbeat,
+} = require('./queues/queueRegistry');
 
 function createApp({ connect = connectToDatabase } = {}) {
   getJwtSecret();
@@ -29,7 +31,11 @@ function createApp({ connect = connectToDatabase } = {}) {
   // triggering restarts.
   app.get('/ready', async (req, res) => {
     const { getConnectionStatus } = require('./utils/serverlessDb');
-    const checks = { mongo: false, redis: false };
+    const checks = {
+      mongo: false,
+      redis: { connected: false, maxmemoryPolicy: null, noEviction: false },
+      worker: { healthy: false, lastHeartbeatAt: null, ageMs: null },
+    };
     try {
       await connect();
       checks.mongo = getConnectionStatus().readyState === 1;
@@ -37,11 +43,19 @@ function createApp({ connect = connectToDatabase } = {}) {
       console.error('Readiness check: database unreachable:', error.message);
     }
     try {
-      checks.redis = await checkRedisConnection();
+      checks.redis = await getRedisReadiness();
+      if (checks.redis.connected) {
+        const worker = await getWorkerHeartbeat();
+        checks.worker = {
+          healthy: worker.healthy,
+          lastHeartbeatAt: worker.lastHeartbeatAt,
+          ageMs: worker.ageMs,
+        };
+      }
     } catch (error) {
       console.error('Readiness check: Redis unreachable:', error.message);
     }
-    const ready = checks.mongo && checks.redis;
+    const ready = checks.mongo && checks.redis.connected && checks.redis.noEviction && checks.worker.healthy;
     res.status(ready ? 200 : 503).json({ status: ready ? 'ready' : 'not_ready', checks });
   });
 

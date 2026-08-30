@@ -1,4 +1,5 @@
 require('dotenv').config();
+require('./migrationSafety');
 
 const { createHash } = require('crypto');
 const Service = require('../models/Service');
