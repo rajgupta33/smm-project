@@ -27,12 +27,15 @@ function indexSignature(keys) {
 
 async function duplicateGroups(collection, keys, match = {}) {
     const id = Object.fromEntries(keys.map((key) => [key, `$${key}`]));
+    // This is the native driver collection, whose aggregate() returns a cursor
+    // rather than a promise for an array. It must be drained with toArray()
+    // before destructuring.
     const [result] = await collection.aggregate([
         { $match: match },
         { $group: { _id: id, count: { $sum: 1 } } },
         { $match: { count: { $gt: 1 } } },
         { $count: 'groups' },
-    ]);
+    ]).toArray();
     return result?.groups || 0;
 }
 
