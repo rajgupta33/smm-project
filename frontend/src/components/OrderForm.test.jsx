@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import OrderForm from './OrderForm';
 import { serviceApi } from '../service/api';
 import { toast } from 'react-toastify';
@@ -60,7 +61,7 @@ describe('OrderForm', () => {
     serviceApi.placeOrder.mockImplementation(
       () => new Promise((resolve) => { resolveFirstCall = resolve; })
     );
-    render(<OrderForm />);
+    render(<MemoryRouter><OrderForm /></MemoryRouter>);
     await screen.findByRole('option', { name: /Followers/ });
     fireEvent.change(screen.getByLabelText('Link'), { target: { value: 'https://example.com/post' } });
     fireEvent.change(screen.getByLabelText('Select Product/Service'), { target: { value: 'service-1' } });
@@ -79,6 +80,19 @@ describe('OrderForm', () => {
     await waitFor(() => expect(serviceApi.placeOrder).toHaveBeenCalledTimes(1));
   });
 
+  it('does not block ordering while the wallet balance is still unknown', async () => {
+    // The auth mock has no user, so the balance has not hydrated. Treating an
+    // unknown balance as zero would lock out a funded customer; the server is
+    // the real authority on affordability.
+    render(<MemoryRouter><OrderForm /></MemoryRouter>);
+    await screen.findByRole('option', { name: /Followers/ });
+    fireEvent.change(screen.getByLabelText('Select Product/Service'), { target: { value: 'service-1' } });
+
+    const button = await screen.findByRole('button', { name: 'Submit Order' });
+    await waitFor(() => expect(button).not.toBeDisabled());
+    expect(screen.queryByText(/You need ₹/)).not.toBeInTheDocument();
+  });
+
   it('displays the server quote rather than a locally computed total', async () => {
     // The catalogue rate (125) would give a different number if multiplied in the
     // browser. Only the server total may be shown, or the price a customer approves
@@ -91,7 +105,7 @@ describe('OrderForm', () => {
         currency: 'INR', pricedAt: '2026-08-30T00:00:00.000Z',
       },
     });
-    render(<OrderForm />);
+    render(<MemoryRouter><OrderForm /></MemoryRouter>);
     await screen.findByRole('option', { name: /Followers/ });
     fireEvent.change(screen.getByLabelText('Select Product/Service'), { target: { value: 'service-1' } });
 
@@ -102,7 +116,7 @@ describe('OrderForm', () => {
     serviceApi.quoteOrder.mockResolvedValue({
       success: false, message: 'Service is not available', code: 'SERVICE_UNAVAILABLE',
     });
-    render(<OrderForm />);
+    render(<MemoryRouter><OrderForm /></MemoryRouter>);
     await screen.findByRole('option', { name: /Followers/ });
     fireEvent.change(screen.getByLabelText('Select Product/Service'), { target: { value: 'service-1' } });
 
@@ -112,7 +126,7 @@ describe('OrderForm', () => {
   });
 
   it('keeps one idempotency key across a failed retry and closes the loading toast', async () => {
-    render(<OrderForm />);
+    render(<MemoryRouter><OrderForm /></MemoryRouter>);
     await screen.findByRole('option', { name: /Followers/ });
     fireEvent.change(screen.getByLabelText('Link'), { target: { value: 'https://example.com/post' } });
     fireEvent.change(screen.getByLabelText('Select Product/Service'), { target: { value: 'service-1' } });
@@ -134,7 +148,7 @@ describe('OrderForm', () => {
       success: true,
       data: { orderId: 'ord_1', code: 'ORDER_QUEUED', queueDispatchPending: false },
     });
-    render(<OrderForm />);
+    render(<MemoryRouter><OrderForm /></MemoryRouter>);
     await screen.findByRole('option', { name: /Followers/ });
     fireEvent.change(screen.getByLabelText('Link'), { target: { value: 'https://example.com/post' } });
     fireEvent.change(screen.getByLabelText('Select Product/Service'), { target: { value: 'service-1' } });
@@ -152,7 +166,7 @@ describe('OrderForm', () => {
       success: true,
       data: { orderId: 'ord_manual', code: 'MANUAL_ORDER_ACCEPTED' },
     });
-    render(<OrderForm />);
+    render(<MemoryRouter><OrderForm /></MemoryRouter>);
     await screen.findByRole('option', { name: /Followers/ });
     fireEvent.change(screen.getByLabelText('Link'), { target: { value: 'https://example.com/post' } });
     fireEvent.change(screen.getByLabelText('Select Product/Service'), { target: { value: 'service-1' } });
@@ -170,7 +184,7 @@ describe('OrderForm', () => {
       success: true,
       data: { orderId: 'ord_drip', code: 'DRIP_FEED_ORDER_ACCEPTED', queueDispatchPending: false },
     });
-    render(<OrderForm />);
+    render(<MemoryRouter><OrderForm /></MemoryRouter>);
     await screen.findByRole('option', { name: /Followers/ });
     fireEvent.change(screen.getByLabelText('Link'), { target: { value: 'https://example.com/post' } });
     fireEvent.change(screen.getByLabelText('Select Product/Service'), { target: { value: 'service-1' } });

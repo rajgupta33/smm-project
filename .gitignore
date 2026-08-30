@@ -70,7 +70,10 @@ dist
 
 # Gatsby files
 .cache/
-public
+# NOTE: a bare "public" here also swallowed frontend/public, which is Vite's
+# static asset root and must be committed (logo, favicon). Scope it to Gatsby.
+/public
+!frontend/public
 
 # Storybook build outputs
 .out
@@ -222,3 +225,4 @@ pnpm-lock.yaml
 .codex_docx_qa_*/
 # Local migration verification baselines contain database record identifiers.
 backend/migration-baseline*.json
+frontend/.env.local

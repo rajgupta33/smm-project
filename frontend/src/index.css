@@ -1,34 +1,208 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-body {
-  background-color: #1A1A2E; /* Use your defined dark-background */
-  color: #E0E0E0; /* Use your defined text-light */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-surface-sunken font-sans text-ink antialiased;
+    /* Respect notches / home indicators on phones. */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-semibold tracking-tight text-ink;
+    text-wrap: balance;
+  }
+
+  /* Money and IDs line up in columns wherever they appear. */
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-purple/60 ring-offset-2 ring-offset-surface;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
+
+@layer components {
+  /* ---------- layout ---------- */
+  .page {
+    @apply mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8;
+  }
+  .page-narrow {
+    @apply mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8;
+  }
+  .page-title {
+    @apply text-2xl font-bold tracking-tight text-ink sm:text-3xl;
+  }
+  .page-sub {
+    @apply mt-1 text-sm text-ink-muted sm:text-base;
+  }
+  .page-head {
+    @apply mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-end sm:justify-between;
+  }
+
+  /* ---------- surfaces ---------- */
+  .card {
+    @apply rounded-2xl border border-line bg-surface shadow-card;
+  }
+  .card-p {
+    @apply p-5 sm:p-6;
+  }
+  .card-hover {
+    @apply transition-shadow duration-200 hover:shadow-lift;
+  }
+
+  /* ---------- buttons: 44px min target on touch ---------- */
+  .btn {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 py-2.5
+           text-sm font-semibold transition-all duration-200
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-brand-gradient text-white shadow-brand
+           hover:brightness-110 active:brightness-95 disabled:hover:brightness-100;
+  }
+  .btn-secondary {
+    @apply btn border border-line-strong bg-surface text-ink
+           hover:border-brand-purple/50 hover:bg-surface-sunken;
+  }
+  .btn-ghost {
+    @apply btn text-ink-soft hover:bg-surface-sunken hover:text-ink;
+  }
+  .btn-danger {
+    @apply btn bg-state-danger text-white hover:brightness-110;
+  }
+  .btn-sm {
+    @apply min-h-[36px] rounded-lg px-3 py-1.5 text-xs;
+  }
+  .btn-block {
+    @apply w-full;
+  }
+
+  /* ---------- forms ---------- */
+  .field {
+    @apply block;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink-soft;
+  }
+  .hint {
+    @apply mt-1.5 text-xs text-ink-muted;
+  }
+  .input {
+    @apply block min-h-[44px] w-full rounded-xl border border-line bg-surface px-3.5 py-2.5
+           text-base text-ink placeholder:text-ink-faint
+           transition-colors duration-150
+           focus:border-brand-purple focus:outline-none focus:ring-2 focus:ring-brand-purple/25
+           disabled:bg-surface-sunken disabled:text-ink-muted sm:text-sm;
+  }
+  .select {
+    @apply input appearance-none bg-[length:18px] bg-[right_0.75rem_center] bg-no-repeat pr-10;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2366788F' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  }
+  .textarea {
+    @apply input min-h-[96px] resize-y py-3;
+  }
+  .input-error {
+    @apply border-state-danger focus:border-state-danger focus:ring-state-danger/25;
+  }
+  .error-text {
+    @apply mt-1.5 text-xs font-medium text-state-danger;
+  }
+
+  /* ---------- badges ---------- */
+  .badge {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1
+           text-xs font-semibold;
+  }
+  .badge-success { @apply badge bg-state-success-bg text-state-success; }
+  .badge-warning { @apply badge bg-state-warning-bg text-state-warning; }
+  .badge-danger  { @apply badge bg-state-danger-bg text-state-danger; }
+  .badge-info    { @apply badge bg-state-info-bg text-state-info; }
+  .badge-neutral { @apply badge bg-surface-sunken text-ink-soft; }
+
+  /* ---------- tables that survive a phone ---------- */
+  .table-wrap {
+    @apply -mx-4 overflow-x-auto px-4 sm:mx-0 sm:rounded-2xl sm:border sm:border-line sm:px-0;
+  }
+  .table {
+    @apply w-full border-collapse text-left text-sm;
+  }
+  .table thead {
+    @apply bg-surface-sunken;
+  }
+  .table th {
+    @apply whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wider text-ink-muted;
+  }
+  .table td {
+    @apply border-t border-line px-4 py-3 align-middle text-ink-soft;
+  }
+  .table tbody tr {
+    @apply bg-surface transition-colors hover:bg-surface-sunken/60;
+  }
+
+  /* Stacked "definition list" rows used instead of tables on small screens. */
+  .stack-row {
+    @apply flex items-start justify-between gap-3 border-b border-line py-2 last:border-0;
+  }
+  .stack-key {
+    @apply shrink-0 text-xs font-medium uppercase tracking-wide text-ink-muted;
+  }
+  .stack-val {
+    @apply min-w-0 break-words text-right text-sm text-ink;
+  }
+
+  /* ---------- misc ---------- */
+  .brand-text {
+    @apply bg-brand-gradient bg-clip-text text-transparent;
+  }
+  .divide-line > * + * {
+    @apply border-t border-line;
+  }
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg bg-line/60;
+  }
+  .skeleton::after {
+    @apply absolute inset-0 -translate-x-full animate-shimmer
+           bg-gradient-to-r from-transparent via-white/70 to-transparent;
+    content: '';
+  }
+  .empty-state {
+    @apply flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed
+           border-line-strong bg-surface-raised px-6 py-12 text-center;
+  }
+}
+
+/* Toast styling aligned to the brand rather than react-toastify defaults. */
+.Toastify__toast {
+  border-radius: 14px;
+  font-family: '"Plus Jakarta Sans"', ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  box-shadow: 0 2px 6px rgba(11, 23, 41, .07), 0 18px 40px -24px rgba(11, 23, 41, .45);
+}
+.Toastify__progress-bar--success { background: #0E9F6E; }
+.Toastify__progress-bar--error { background: #D92D20; }
+.Toastify__progress-bar--warning { background: #B45309; }
+
 @keyframes zoom-in-95 {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
-
-.animate-in {
-  animation: zoom-in-95 0.3s ease-out;
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-out;
-}
-
+.animate-in { animation: zoom-in-95 0.3s ease-out; }
+.animate-fade-in { animation: fadeIn 0.3s ease-out; }
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }

@@ -23,6 +23,7 @@ import ManualTasksPage from './pages/Admin/ManualTasksPage'
 import AdminOverviewPage from './pages/Admin/AdminOverviewPage'
 import OrderDetailPage from './pages/user/OrderDetailPage'
 import NotFound from './pages/common/NotFound'
+import WhatsAppButton from './components/WhatsAppButton'
 
 const ProviderRoutingPage = lazy(() => import('./pages/Admin/ProviderRoutingPage'))
 const ReconciliationPage = lazy(() => import('./pages/Admin/ReconciliationPage'))
@@ -31,6 +32,7 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <WhatsAppButton />
         <Routes>
           <Route path="/login" element={<LoginPage/>} />
           <Route path="/unauthorized" element={<Unauthorized />} />
