@@ -6,6 +6,7 @@ const {
 const {
     CashfreeWebhookError, verifyCashfreeWebhook, webhookEventKey,
 } = require('../services/cashfreeWebhookService');
+const { CashfreeError } = require('../services/cashfreeClient');
 
 function serializePayment(payment, { includeUser = false, includeSession = false } = {}) {
     const value = typeof payment?.toObject === 'function' ? payment.toObject() : payment;
@@ -32,7 +33,21 @@ function serializePayment(payment, { includeUser = false, includeSession = false
 }
 
 function sendError(res, error) {
-    const known = error instanceof PaymentError || error instanceof CashfreeWebhookError;
+    // CashfreeError messages are already generic and gateway-safe ("Cashfree
+    // rejected the request"), never the raw provider response body, so it is
+    // fine to return them the same way as our own PaymentError.
+    const known = error instanceof PaymentError
+        || error instanceof CashfreeWebhookError
+        || error instanceof CashfreeError;
+    // Every payment failure is logged server-side regardless of whether it is
+    // "known" -- an unrecognized error returning a generic message to the
+    // customer must still be diagnosable from the logs, not silent.
+    console.error(
+        'Payment operation failed:',
+        error.code || error.name || 'UNKNOWN_ERROR',
+        error.gatewayStatus ? `gatewayStatus=${error.gatewayStatus}` : '',
+        error.message
+    );
     return res.status(known ? error.statusCode : 500).json({
         error: known ? error.message : 'Payment operation failed',
         code: known ? error.code : 'PAYMENT_OPERATION_FAILED',
