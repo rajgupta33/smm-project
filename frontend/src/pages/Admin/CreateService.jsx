@@ -45,8 +45,8 @@ function ServiceManagerApp() {
   // Show a full-screen loader if initial services are still loading
   if (loadingServices && allServices.length === 0 && pageMode === 'dashboard') {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-950 text-gray-100">
-        <Loader2 className="animate-spin h-10 w-10 text-purple-500" />
+      <div className="flex items-center justify-center min-h-screen bg-surface-sunken text-ink">
+        <Loader2 className="animate-spin h-10 w-10 text-ink0" />
         <span className="ml-4 text-xl">Loading application data...</span>
       </div>
     );

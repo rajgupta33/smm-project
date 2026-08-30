@@ -135,7 +135,7 @@ const UserProfilePage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-950 text-gray-100 font-inter antialiased">
+        <div className="min-h-screen bg-surface-sunken text-ink font-inter antialiased">
             {/* Inline CSS for react-toastify and custom theme colors */}
             <style>
                 {`
@@ -162,8 +162,8 @@ const UserProfilePage = () => {
                     align-items: center;
                     gap: 0.75rem; /* gap-3 */
                     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* shadow-md */
-                    background-color: rgba(0, 0, 0, 0.9); /* bg-black/90 */
-                    border: 1px solid rgba(76, 29, 149, 0.3); /* border-purple-900/30 */
+                    background-color: rgba(0, 0, 0, 0.9); /* bg-surface */
+                    border: 1px solid rgba(76, 29, 149, 0.3); /* border-line */
                     color: #f5f3ff; /* text-white */
                 }
                 .Toastify__toast--success {
@@ -213,7 +213,7 @@ const UserProfilePage = () => {
             <ResponsiveNavbar />
 
             <main className="container mx-auto px-4 py-8 flex items-center justify-center min-h-[calc(100vh-80px)]">
-                <div className="bg-dark-card p-8 rounded-lg shadow-2xl w-full max-w-md animate-fadeIn border border-primary-purple">
+                <div className="bg-dark-card p-8 rounded-lg shadow-lift w-full max-w-md animate-fadeIn border border-primary-purple">
                     <h1 className="text-3xl font-bold text-text-light mb-6 text-center">
                         User Profile
                     </h1>

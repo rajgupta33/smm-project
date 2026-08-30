@@ -51,8 +51,8 @@ function App() {
             <Route path="/adminTickets" element={<TicketsPage/>}/>
             <Route path="/adminOverview" element={<AdminOverviewPage/>}/>
             <Route path="/adminManualTasks" element={<ManualTasksPage/>}/>
-            <Route path="/adminProviders" element={<Suspense fallback={<div className="min-h-screen bg-gray-950 text-white p-6">Loading provider tools…</div>}><ProviderRoutingPage/></Suspense>}/>
-            <Route path="/adminReconciliation" element={<Suspense fallback={<div className="min-h-screen bg-gray-950 text-white p-6">Loading reconciliation tools…</div>}><ReconciliationPage/></Suspense>}/>
+            <Route path="/adminProviders" element={<Suspense fallback={<div className="min-h-screen bg-surface-sunken text-ink p-6">Loading provider tools…</div>}><ProviderRoutingPage/></Suspense>}/>
+            <Route path="/adminReconciliation" element={<Suspense fallback={<div className="min-h-screen bg-surface-sunken text-ink p-6">Loading reconciliation tools…</div>}><ReconciliationPage/></Suspense>}/>
           </Route>
 
           {/* User routes */}

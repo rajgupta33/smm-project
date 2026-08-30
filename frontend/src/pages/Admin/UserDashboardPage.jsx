@@ -203,8 +203,8 @@ const UserDashboardPage = () => {
         if (!isOpen) return null;
 
         return (
-            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-                <div className="bg-dark-card p-6 rounded-lg shadow-2xl max-w-md w-full border border-primary-purple relative">
+            <div className="fixed inset-0 bg-surface bg-opacity-75 flex items-center justify-center z-50 p-4">
+                <div className="bg-dark-card p-6 rounded-lg shadow-lift max-w-md w-full border border-primary-purple relative">
                     <button onClick={onClose} className="absolute top-3 right-3 text-text-dim hover:text-white transition-colors">
                         <X size={24} />
                     </button>
@@ -248,8 +248,8 @@ const UserDashboardPage = () => {
     const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, service }) => {
         if (!isOpen || !service) return null;
         return (
-            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-                <div className="bg-dark-card p-6 rounded-lg shadow-2xl max-w-sm w-full border border-danger-red relative">
+            <div className="fixed inset-0 bg-surface bg-opacity-75 flex items-center justify-center z-50 p-4">
+                <div className="bg-dark-card p-6 rounded-lg shadow-lift max-w-sm w-full border border-danger-red relative">
                     <button onClick={onClose} className="absolute top-3 right-3 text-text-dim hover:text-white transition-colors">
                         <X size={24} />
                     </button>
@@ -260,7 +260,7 @@ const UserDashboardPage = () => {
                         This will remove it from the system entirely.
                     </p>
                     <div className="flex justify-around gap-4">
-                        <button onClick={onClose} className="flex-1 py-2 px-4 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition duration-300">
+                        <button onClick={onClose} className="flex-1 py-2 px-4 bg-surface-sunken hover:bg-surface-sunken text-ink rounded-md transition duration-300">
                             Cancel
                         </button>
                         <button onClick={onConfirm} className="flex-1 py-2 px-4 bg-danger-red hover:bg-red-700 text-white font-semibold rounded-md transition duration-300">
@@ -276,8 +276,8 @@ const UserDashboardPage = () => {
     const RemoveFromUserConfirmModal = ({ isOpen, onClose, onConfirm, service, userId }) => {
         if (!isOpen || !service || !userId) return null;
         return (
-            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-                <div className="bg-dark-card p-6 rounded-lg shadow-2xl max-w-sm w-full border border-danger-red relative">
+            <div className="fixed inset-0 bg-surface bg-opacity-75 flex items-center justify-center z-50 p-4">
+                <div className="bg-dark-card p-6 rounded-lg shadow-lift max-w-sm w-full border border-danger-red relative">
                     <button onClick={onClose} className="absolute top-3 right-3 text-text-dim hover:text-white transition-colors">
                         <X size={24} />
                     </button>
@@ -288,7 +288,7 @@ const UserDashboardPage = () => {
                         from user: <span className="font-semibold text-primary-purple">"{userId}"</span>?
                     </p>
                     <div className="flex justify-around gap-4">
-                        <button onClick={onClose} className="flex-1 py-2 px-4 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition duration-300">
+                        <button onClick={onClose} className="flex-1 py-2 px-4 bg-surface-sunken hover:bg-surface-sunken text-ink rounded-md transition duration-300">
                             Cancel
                         </button>
                         <button onClick={onConfirm} className="flex-1 py-2 px-4 bg-danger-red hover:bg-red-700 text-white font-semibold rounded-md transition duration-300">
@@ -301,7 +301,7 @@ const UserDashboardPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-950 text-gray-100 font-inter antialiased">
+        <div className="min-h-screen bg-surface-sunken text-ink font-inter antialiased">
             {/* Inline CSS for react-toastify and custom theme colors (similar to previous apps) */}
             <style>
                 {`
@@ -328,8 +328,8 @@ const UserDashboardPage = () => {
                     align-items: center;
                     gap: 0.75rem; /* gap-3 */
                     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* shadow-md */
-                    background-color: rgba(0, 0, 0, 0.9); /* bg-black/90 */
-                    border: 1px solid rgba(76, 29, 149, 0.3); /* border-purple-900/30 */
+                    background-color: rgba(0, 0, 0, 0.9); /* bg-surface */
+                    border: 1px solid rgba(76, 29, 149, 0.3); /* border-line */
                     color: #f5f3ff; /* text-white */
                 }
                 .Toastify__toast--success {
@@ -367,7 +367,7 @@ const UserDashboardPage = () => {
 
             {/* Main content area */}
             <main className="container mx-auto px-4 py-8">
-                <div className="bg-dark-card p-8 rounded-lg shadow-2xl w-full max-w-2xl mx-auto border border-primary-purple">
+                <div className="bg-dark-card p-8 rounded-lg shadow-lift w-full max-w-2xl mx-auto border border-primary-purple">
                     <h1 className="text-3xl font-bold text-text-light mb-6 text-center">
                         User Dashboard
                     </h1>
@@ -490,7 +490,7 @@ const UserDashboardPage = () => {
                                             <button
                                                 onClick={handleAssignServiceToUser}
                                                 disabled={!selectedServiceToAddId}
-                                                className="w-full sm:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="w-full sm:w-auto px-6 py-3 bg-state-success text-white hover:brightness-110 text-white font-semibold rounded-md transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 Assign Service
                                             </button>
@@ -516,7 +516,7 @@ const UserDashboardPage = () => {
                                                 </div>
                                                 <div className="text-left sm:text-right">
                                                     <p className="font-bold text-text-light">Total: ₹{(order.quantity * order.rate).toFixed(2)}</p>
-                                                    <span className={`text-sm font-medium uppercase ${order.status === 'completed' ? 'text-green-500' : order.status === 'pending' ? 'text-yellow-500' : 'text-blue-400'}`}>
+                                                    <span className={`text-sm font-medium uppercase ${order.status === 'completed' ? 'text-state-success' : order.status === 'pending' ? 'text-state-warning' : 'text-blue-400'}`}>
                                                         {order.status}
                                                     </span>
                                                     <p className="text-text-dim text-xs mt-1">Date: {formatDate(order.createdAt)}</p>
@@ -544,10 +544,10 @@ const UserDashboardPage = () => {
                                                     <p className="text-text-dim text-sm">Order ID: {transaction.orderId}</p>
                                                 </div>
                                                 <div className="text-left sm:text-right">
-                                                    <p className={`font-bold ${transaction.amount < 0 ? 'text-red-500' : 'text-green-500'}`}>
+                                                    <p className={`font-bold ${transaction.amount < 0 ? 'text-state-danger' : 'text-state-success'}`}>
                                                         Amount: ₹{transaction.amount.toFixed(2)}
                                                     </p>
-                                                    <span className={`text-sm font-medium uppercase ${transaction.status === 'completed' ? 'text-green-500' : transaction.status === 'pending' ? 'text-yellow-500' : 'text-red-500'}`}>
+                                                    <span className={`text-sm font-medium uppercase ${transaction.status === 'completed' ? 'text-state-success' : transaction.status === 'pending' ? 'text-state-warning' : 'text-state-danger'}`}>
                                                         Status: {transaction.status}
                                                     </span>
                                                     <p className="text-text-dim text-xs mt-1">Date: {formatDate(transaction.date)}</p>
@@ -564,13 +564,13 @@ const UserDashboardPage = () => {
 
                     {/* Admin System Services Management Section (This entire block is removed as per request) */}
                     {/* {authUser?.role === 'admin' && !selectedUserId && (
-                        <div className="bg-dark-card p-8 rounded-lg shadow-2xl mt-12 border border-primary-purple">
+                        <div className="bg-dark-card p-8 rounded-lg shadow-lift mt-12 border border-primary-purple">
                             <h1 className="text-3xl font-bold text-text-light mb-6 text-center flex items-center justify-center">
                                 <Menu className="mr-3 text-primary-purple" size={28} /> System Service Management
                             </h1>
                             <button
                                 onClick={() => setIsAddServiceModalOpen(true)}
-                                className="w-full flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-md transition duration-300 ease-in-out transform hover:scale-105 shadow-lg mb-6"
+                                className="w-full flex items-center justify-center bg-state-success text-white hover:brightness-110 text-white font-semibold py-3 px-6 rounded-md transition duration-300 ease-in-out transform hover:scale-105 shadow-lg mb-6"
                             >
                                 <PlusCircle className="mr-2" size={20} /> Add New System Service
                             </button>

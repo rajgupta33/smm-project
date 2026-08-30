@@ -22,7 +22,7 @@ const ChangePasswordForm = () => {
     if (!userId.trim() || !newPassword.trim() || !confirmPassword.trim()) {
       toast.error('Please fill in all fields', {
         theme: "dark",
-        className: "bg-purple-950 text-purple-50 border-purple-700",
+        className: "bg-surface-sunken text-ink border-line",
       });
       return;
     }
@@ -30,7 +30,7 @@ const ChangePasswordForm = () => {
     if (newPassword !== confirmPassword) {
       toast.error('Passwords do not match', {
         theme: "dark",
-        className: "bg-purple-950 text-purple-50 border-purple-700",
+        className: "bg-surface-sunken text-ink border-line",
       });
       return;
     }
@@ -38,7 +38,7 @@ const ChangePasswordForm = () => {
     if (newPassword.length < 6) {
         toast.error('New password must be at least 6 characters long.', {
             theme: "dark",
-            className: "bg-purple-950 text-purple-50 border-purple-700",
+            className: "bg-surface-sunken text-ink border-line",
         });
         return;
     }
@@ -55,7 +55,7 @@ const ChangePasswordForm = () => {
       // Show success toast
       toast.success("password change successful", {
         theme: "dark",
-        className: "bg-purple-950 text-purple-50 border-purple-700",
+        className: "bg-surface-sunken text-ink border-line",
       });
       await new Promise((resolve) => setTimeout(resolve, 3000));
       // Clear form fields on success
@@ -67,12 +67,12 @@ const ChangePasswordForm = () => {
       if (error.response) {
         toast.error(error.response.data.error || 'Failed to change password', {
           theme: "dark",
-          className: "bg-purple-950 text-purple-50 border-purple-700",
+          className: "bg-surface-sunken text-ink border-line",
         });
       } else {
         toast.error(error.message || 'Failed to change password', {
           theme: "dark",
-          className: "bg-purple-950 text-purple-50 border-purple-700",
+          className: "bg-surface-sunken text-ink border-line",
         });
       }
     } finally {
@@ -81,12 +81,12 @@ const ChangePasswordForm = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-md mx-auto space-y-4 p-6 bg-gray-900 rounded-lg shadow-xl border border-purple-800">
-      <h2 className="text-2xl font-bold text-center text-purple-400 mb-6">Change Password</h2>
+    <form onSubmit={handleSubmit} className="max-w-md mx-auto space-y-4 p-6 bg-surface rounded-lg shadow-card border border-line">
+      <h2 className="text-2xl font-bold text-center text-ink-muted mb-6">Change Password</h2>
       {/* User ID Input */}
       <div className="space-y-2">
-        <label htmlFor="userId" className="text-purple-400 flex items-center gap-2">
-          <User className="w-4 h-4 text-purple-400" />
+        <label htmlFor="userId" className="text-ink-muted flex items-center gap-2">
+          <User className="w-4 h-4 text-ink-muted" />
           User ID
         </label>
         <input
@@ -95,14 +95,14 @@ const ChangePasswordForm = () => {
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
           placeholder="Enter user ID"
-          className="w-full px-4 py-2 bg-gray-800 border border-purple-700 rounded-md text-purple-50 focus:border-purple-500 focus:outline-none transition-colors"
+          className="w-full px-4 py-2 bg-surface border border-line rounded-md text-ink focus:border-line focus:outline-none transition-colors"
         />
       </div>
 
       {/* New Password Input */}
       <div className="space-y-2">
-        <label htmlFor="newPassword" className="text-purple-400 flex items-center gap-2">
-          <Lock className="w-4 h-4 text-purple-400" />
+        <label htmlFor="newPassword" className="text-ink-muted flex items-center gap-2">
+          <Lock className="w-4 h-4 text-ink-muted" />
           New Password
         </label>
         <input
@@ -111,14 +111,14 @@ const ChangePasswordForm = () => {
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           placeholder="Enter new password"
-          className="w-full px-4 py-2 bg-gray-800 border border-purple-700 rounded-md text-purple-50 focus:border-purple-500 focus:outline-none transition-colors"
+          className="w-full px-4 py-2 bg-surface border border-line rounded-md text-ink focus:border-line focus:outline-none transition-colors"
         />
       </div>
 
       {/* Confirm Password Input */}
       <div className="space-y-2">
-        <label htmlFor="confirmPassword" className="text-purple-400 flex items-center gap-2">
-          <Lock className="w-4 h-4 text-purple-400" />
+        <label htmlFor="confirmPassword" className="text-ink-muted flex items-center gap-2">
+          <Lock className="w-4 h-4 text-ink-muted" />
           Confirm Password
         </label>
         <input
@@ -127,7 +127,7 @@ const ChangePasswordForm = () => {
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           placeholder="Confirm new password"
-          className="w-full px-4 py-2 bg-gray-800 border border-purple-700 rounded-md text-purple-50 focus:border-purple-500 focus:outline-none transition-colors"
+          className="w-full px-4 py-2 bg-surface border border-line rounded-md text-ink focus:border-line focus:outline-none transition-colors"
         />
       </div>
 
@@ -135,10 +135,10 @@ const ChangePasswordForm = () => {
       <button
         type="submit"
         disabled={isSubmitting} // Disable button while submitting
-        className="w-full py-3 bg-purple-700 hover:bg-purple-600 text-purple-50 font-semibold rounded-md flex items-center justify-center gap-2 transition-colors transform hover:scale-105 active:scale-95"
+        className="w-full py-3 bg-brand-gradient text-white hover:brightness-110 text-ink font-semibold rounded-md flex items-center justify-center gap-2 transition-colors transform hover:scale-105 active:scale-95"
       >
         {isSubmitting ? 'Changing...' : 'Change Password'}
-        <CheckCircle className="w-5 h-5 text-purple-50" />
+        <CheckCircle className="w-5 h-5 text-ink" />
       </button>
     </form>
   );

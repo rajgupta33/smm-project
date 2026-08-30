@@ -6,7 +6,7 @@ import 'react-toastify/dist/ReactToastify.css';
 export default function AddPayment(){
     return (
     // Set a dark background and text color for the entire app
-   <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-gray-100 font-inter antialiased">
+   <div className="min-h-screen bg-surface-sunken px-4 py-6 sm:px-6 sm:py-8">
       {/* Inline CSS for react-toastify and custom theme colors */}
       <style>
         {`

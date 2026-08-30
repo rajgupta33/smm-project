@@ -49,12 +49,12 @@ export default function PaymentReturnPage() {
   return (
     <>
       <ResponsiveNavbar />
-      <main className="flex min-h-screen items-start justify-center bg-gradient-to-br from-black to-purple-950 p-8 text-white">
-        <section className="mt-12 max-w-lg rounded-2xl border border-purple-700 bg-black/70 p-8 text-center">
-          <p className="text-sm uppercase tracking-widest text-purple-300">{status}</p>
+      <main className="flex min-h-screen items-start justify-center bg-surface-sunken p-8">
+        <section className="mt-12 max-w-lg rounded-2xl border border-line bg-surface p-8 text-center">
+          <p className="text-sm uppercase tracking-widest text-ink">{status}</p>
           <h1 className="mt-3 text-3xl font-bold">Payment confirmation</h1>
-          <p role="status" className="mt-4 text-purple-100">{message}</p>
-          <Link to="/payments" className="mt-7 inline-block rounded-lg bg-purple-600 px-5 py-3 font-semibold">Back to payments</Link>
+          <p role="status" className="mt-4 text-ink-soft">{message}</p>
+          <Link to="/payments" className="mt-7 inline-block rounded-lg bg-brand-gradient text-white px-5 py-3 font-semibold">Back to payments</Link>
         </section>
       </main>
     </>

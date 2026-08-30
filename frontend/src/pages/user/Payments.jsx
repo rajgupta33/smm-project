@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
+import { ReceiptText } from 'lucide-react';
 import ResponsiveNavbar from '../../components/NavBar';
 import WalletTopUp from '../../components/WalletTopUp';
+import { EmptyState, LoadingRows, Notice, StatusBadge } from '../../components/ui/Primitives';
 import { paymentApi } from '../../service/api';
 
 const money = (minor) => new Intl.NumberFormat('en-IN', {
@@ -27,31 +29,74 @@ export default function Payments() {
   useEffect(() => { load(); }, [load]);
 
   return (
-    <>
+    <div className="min-h-screen bg-surface-sunken">
       <ResponsiveNavbar />
-      <main className="min-h-screen bg-gradient-to-br from-black to-purple-950 p-4 text-white sm:p-8">
-        <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
-          <WalletTopUp onCreated={load} />
+      <main className="page">
+        <header className="page-head">
+          <div>
+            <h1 className="page-title">Wallet</h1>
+            <p className="page-sub">Top up your balance and review every payment.</p>
+          </div>
+        </header>
+
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:items-start lg:gap-6">
+          <div className="lg:sticky lg:top-24">
+            <WalletTopUp onCreated={load} />
+          </div>
+
           <section>
-            <h2 className="text-3xl font-bold text-purple-300">Payment history</h2>
-            {loading && <p className="mt-5 text-purple-200">Loading payments…</p>}
-            {error && <p role="alert" className="mt-5 text-red-300">{error}</p>}
-            {!loading && !error && payments.length === 0 && <p className="mt-5 text-purple-200">No top-ups yet.</p>}
-            <div className="mt-5 space-y-3">
-              {payments.map((payment) => (
-                <article key={payment.id} className="rounded-xl border border-purple-800 bg-black/60 p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <strong>{money(payment.amountMinor)}</strong>
-                    <span className="rounded-full bg-purple-900 px-3 py-1 text-xs">{payment.status}</span>
-                  </div>
-                  <p className="mt-2 break-all text-xs text-purple-200">{payment.merchantOrderId}</p>
-                  <time className="text-xs text-gray-400">{new Date(payment.createdAt).toLocaleString()}</time>
-                </article>
-              ))}
-            </div>
+            <h2 className="mb-4 text-lg font-semibold text-ink">Payment history</h2>
+
+            {loading && <LoadingRows rows={3} />}
+            {error && <Notice tone="danger">{error}</Notice>}
+
+            {!loading && !error && payments.length === 0 && (
+              <EmptyState
+                icon={ReceiptText}
+                title="No top-ups yet"
+                description="Once you add money to your wallet, every payment will be listed here."
+              />
+            )}
+
+            {!loading && !error && payments.length > 0 && (
+              <ul className="space-y-3">
+                {payments.map((payment) => (
+                  <li key={payment.id} className="card card-hover p-4 sm:p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span className="tnum text-lg font-bold text-ink">{money(payment.amountMinor)}</span>
+                      <StatusBadge status={payment.status} />
+                    </div>
+                    <dl className="mt-3 border-t border-line pt-3">
+                      <div className="stack-row">
+                        <dt className="stack-key">Reference</dt>
+                        <dd className="stack-val break-all font-mono text-xs">{payment.merchantOrderId}</dd>
+                      </div>
+                      <div className="stack-row">
+                        <dt className="stack-key">Date</dt>
+                        <dd className="stack-val">
+                          {new Date(payment.createdAt).toLocaleString('en-IN', {
+                            dateStyle: 'medium', timeStyle: 'short',
+                          })}
+                        </dd>
+                      </div>
+                      {payment.creditedAt && (
+                        <div className="stack-row">
+                          <dt className="stack-key">Credited</dt>
+                          <dd className="stack-val">
+                            {new Date(payment.creditedAt).toLocaleString('en-IN', {
+                              dateStyle: 'medium', timeStyle: 'short',
+                            })}
+                          </dd>
+                        </div>
+                      )}
+                    </dl>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         </div>
       </main>
-    </>
+    </div>
   );
 }

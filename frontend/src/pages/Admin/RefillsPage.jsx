@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
+import { RotateCcw } from 'lucide-react';
 import ResponsiveNavbar from '../../components/NavBar';
+import DataTable from '../../components/ui/DataTable';
+import { EmptyState, Notice, StatusBadge, Value } from '../../components/ui/Primitives';
 import { refillApi } from '../../service/api';
 
 const statuses = [
@@ -13,50 +16,106 @@ export default function RefillsPage() {
   const [message, setMessage] = useState('');
 
   const load = useCallback(async () => {
-    try { setRefills(await refillApi.listAdmin(status)); setMessage(''); }
-    catch (error) { setMessage(error.response?.data?.error || 'Could not load refills.'); }
+    try {
+      setRefills(await refillApi.listAdmin(status));
+      setMessage('');
+    } catch (error) {
+      setMessage(error.response?.data?.error || 'Could not load refills.');
+    }
   }, [status]);
 
   useEffect(() => { load(); }, [load]);
 
   async function poll(refill) {
     setMessage(`Checking ${refill.id}…`);
-    try { await refillApi.pollAdmin(refill.id); await load(); }
-    catch (error) { setMessage(error.response?.data?.error || 'Status check failed.'); }
+    try {
+      await refillApi.pollAdmin(refill.id);
+      await load();
+    } catch (error) {
+      setMessage(error.response?.data?.error || 'Status check failed.');
+    }
   }
 
-  return <>
-    <ResponsiveNavbar />
-    <main className="min-h-screen bg-gradient-to-br from-black to-purple-950 p-6 text-white">
-      <div className="mx-auto max-w-7xl">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-4xl font-bold text-purple-300">Refill requests</h1>
-          <select aria-label="Filter refill status" value={status} onChange={(event) => setStatus(event.target.value)}
-            className="rounded-lg border border-purple-700 bg-black px-4 py-2">
-            {statuses.map((value) => <option key={value} value={value}>{value || 'ALL STATUSES'}</option>)}
-          </select>
-        </div>
-        {message && <p role="status" className="my-4 text-purple-200">{message}</p>}
-        <div className="mt-6 overflow-x-auto rounded-xl border border-purple-800">
-          <table className="w-full min-w-[1000px] text-left text-sm">
-            <thead className="bg-purple-950 text-purple-200"><tr>
-              <th className="p-3">Request</th><th className="p-3">Order</th><th className="p-3">Customer</th>
-              <th className="p-3">Status</th><th className="p-3">Provider refill</th>
-              <th className="p-3">Requested</th><th className="p-3">Failure</th><th className="p-3">Action</th>
-            </tr></thead>
-            <tbody>{refills.map((refill) => <tr key={refill.id} className="border-t border-purple-900 bg-black/60">
-              <td className="p-3">{refill.id}</td><td className="p-3">{refill.publicOrderId || refill.orderId}</td>
-              <td className="p-3">{refill.customerId || refill.userId}</td><td className="p-3">{refill.status}</td>
-              <td className="p-3">{refill.providerRefillId || '—'}</td>
-              <td className="p-3">{new Date(refill.requestedAt).toLocaleString()}</td>
-              <td className="p-3">{refill.failureReason || '—'}</td>
-              <td className="p-3"><button type="button" onClick={() => poll(refill)}
-                disabled={!['SENT_TO_PROVIDER', 'IN_PROGRESS'].includes(refill.status)}
-                className="rounded bg-purple-700 px-3 py-2 disabled:opacity-40">Check status</button></td>
-            </tr>)}</tbody>
-          </table>
-        </div>
-      </div>
-    </main>
-  </>;
+  const columns = [
+    {
+      key: 'request',
+      header: 'Request',
+      primary: true,
+      render: (row) => <span className="break-all font-mono text-xs">{row.id}</span>,
+    },
+    {
+      key: 'order',
+      header: 'Order',
+      render: (row) => <span className="font-mono text-xs">{row.publicOrderId || row.orderId}</span>,
+    },
+    { key: 'customer', header: 'Customer', render: (row) => row.customerId || row.userId },
+    { key: 'status', header: 'Status', render: (row) => <StatusBadge status={row.status} /> },
+    {
+      key: 'providerRefill',
+      header: 'Provider refill',
+      render: (row) => <Value mono>{row.providerRefillId}</Value>,
+    },
+    {
+      key: 'requested',
+      header: 'Requested',
+      render: (row) =>
+        new Date(row.requestedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
+      mobileHidden: true,
+    },
+    { key: 'failure', header: 'Failure', render: (row) => <Value>{row.failureReason}</Value> },
+  ];
+
+  return (
+    <div className="min-h-screen bg-surface-sunken">
+      <ResponsiveNavbar />
+      <main className="page">
+        <header className="page-head">
+          <div>
+            <h1 className="page-title">Refill requests</h1>
+            <p className="page-sub">Track guarantee claims and poll the provider for status.</p>
+          </div>
+          <div className="field">
+            <label htmlFor="refill-status" className="sr-only">Filter refill status</label>
+            <select
+              id="refill-status"
+              aria-label="Filter refill status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              className="select"
+            >
+              {statuses.map((value) => (
+                <option key={value} value={value}>{value || 'All statuses'}</option>
+              ))}
+            </select>
+          </div>
+        </header>
+
+        {message && <div className="mb-4"><Notice tone="info">{message}</Notice></div>}
+
+        <DataTable
+          caption="Refill requests"
+          columns={columns}
+          rows={refills}
+          rowKey={(row) => row.id}
+          empty={
+            <EmptyState
+              icon={RotateCcw}
+              title="No refill requests"
+              description="Refill claims matching this filter will appear here."
+            />
+          }
+          actions={(row) => (
+            <button
+              type="button"
+              onClick={() => poll(row)}
+              disabled={!['SENT_TO_PROVIDER', 'IN_PROGRESS'].includes(row.status)}
+              className="btn-secondary btn-sm"
+            >
+              Check status
+            </button>
+          )}
+        />
+      </main>
+    </div>
+  );
 }

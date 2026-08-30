@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { serviceApi } from '../service/api'; 
-import { RotateCcw, Search, AlertCircle, Check, Info, IndianRupee, RefreshCcw } from 'lucide-react';
+// AlertCircle and Check are used only inside toast `icon` props, which ESLint
+// cannot see as references without the React plugin -- do not "clean up" these
+// imports based on a lint pass alone.
+import { RotateCcw, Search, Info, RefreshCcw, AlertCircle, Check } from 'lucide-react';
+import { StatusBadge } from '../components/ui/Primitives';
 
 const OrderCard = ({ order, onOrderUpdate }) => {
   const navigate = useNavigate();
@@ -41,7 +45,7 @@ const OrderCard = ({ order, onOrderUpdate }) => {
           isLoading: false,
           autoClose: 5000,
           theme: "dark",
-          icon: <Check className="text-green-500" />
+          icon: <Check className="text-state-success" />
         });
         
         
@@ -55,13 +59,13 @@ const OrderCard = ({ order, onOrderUpdate }) => {
           isLoading: false,
           autoClose: 5000,
           theme: "dark",
-          icon: <AlertCircle className="text-red-500" />
+          icon: <AlertCircle className="text-state-danger" />
         });
       }
     } catch (error) {
       console.error("Error requesting refill:", error);
       toast.error(error.response?.data?.message || "An error occurred while requesting refill.", {
-        icon: <AlertCircle className="text-red-500" />,
+        icon: <AlertCircle className="text-state-danger" />,
         theme: "dark"
       });
     }
@@ -93,7 +97,7 @@ const OrderCard = ({ order, onOrderUpdate }) => {
 
         
         const toastType = status === 'Completed' ? "success" : "info";
-        const toastIcon = status === 'Completed' ? <Check className="text-green-500" /> : <Info className="text-blue-400" />;
+        const toastIcon = status === 'Completed' ? <Check className="text-state-success" /> : <Info className="text-blue-400" />;
 
         toast.update(loadingToastId, {
           render: `Refill Status: ${status}`,
@@ -110,13 +114,13 @@ const OrderCard = ({ order, onOrderUpdate }) => {
           isLoading: false,
           autoClose: 5000,
           theme: "dark",
-          icon: <AlertCircle className="text-red-500" />
+          icon: <AlertCircle className="text-state-danger" />
         });
       }
     } catch (error) {
       console.error("Error checking refill status:", error);
       toast.error(error.response?.data?.message || "An error occurred while checking refill status.", {
-        icon: <AlertCircle className="text-red-500" />,
+        icon: <AlertCircle className="text-state-danger" />,
         theme: "dark"
       });
     } finally {
@@ -141,7 +145,7 @@ const OrderCard = ({ order, onOrderUpdate }) => {
 
         // Determine toast type and icon based on status
         const toastType = status === 'Completed' ? "success" : "info";
-        const toastIcon = status === 'Completed' ? <Check className="text-green-500" /> : <Info className="text-blue-400" />;
+        const toastIcon = status === 'Completed' ? <Check className="text-state-success" /> : <Info className="text-blue-400" />;
 
         toast.update(loadingToastId, {
           render: `Order Status: ${status}`,
@@ -164,13 +168,13 @@ const OrderCard = ({ order, onOrderUpdate }) => {
           isLoading: false,
           autoClose: 5000,
           theme: "dark",
-          icon: <AlertCircle className="text-red-500" />
+          icon: <AlertCircle className="text-state-danger" />
         });
       }
     } catch (error) {
       console.error("Error checking order status:", error);
       toast.error(error.response?.data?.message || "An error occurred while checking order status.", {
-        icon: <AlertCircle className="text-red-500" />,
+        icon: <AlertCircle className="text-state-danger" />,
         theme: "dark"
       });
     } finally {
@@ -178,132 +182,135 @@ const OrderCard = ({ order, onOrderUpdate }) => {
     }
   };
 
-  // Helper to determine the color of the status text
-  const getStatusTextColor = (status) => {
-    switch (status) {
-      case 'Completed': return 'text-green-500';
-      case 'Pending': return 'text-yellow-500';
-      case 'In Progress': return 'text-blue-500';
-      case 'Partial': return 'text-orange-400';
-      default: return 'text-red-500'; // For 'Canceled', 'Error', etc.
-    }
-  };
+  // Status colour now comes from the shared StatusBadge so every screen tones
+  // the same backend status identically.
+  const displayStatus = lastCheckedOrderStatusDetails?.status || order.lastStatus;
+  const startCount = lastCheckedOrderStatusDetails?.start_count ?? order.start_count;
+
+  const refillLabel = order.refillRequest
+    ? `${order.refillRequest.status} (request ${order.refillRequest.id})`
+    : order.refill === null
+      ? 'Not Available'
+      : order.refill === ''
+        ? 'Available (click to request)'
+        : `Refill in progress (ID: ${order.refill})`;
 
   return (
-    <div className="bg-gray-800 p-6 rounded-lg shadow-lg text-white space-y-3 border border-purple-700/50">
-      <h3 className="text-xl font-bold text-purple-400">Order ID: {order.orderId}</h3>
-      <p>
-        <span className="font-semibold">Service:</span> {order.service}
-      </p>
-      <p>
-        <span className="font-semibold">Quantity:</span> {order.quantity}
-      </p>
-      <p className="flex items-center">
-        <span className="font-semibold">Rate:</span> <IndianRupee size={16} className="ml-1 mr-0.5" />{order.rate} per 1000
-      </p>
-      <p>
-        <span className="font-semibold">Date:</span> {new Date(order.createdAt).toLocaleDateString('en-IN', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric'
+    <article className="card card-hover flex flex-col p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">Order</p>
+          <h3 className="truncate font-mono text-sm font-semibold text-ink" title={order.orderId}>
+            {order.orderId}
+          </h3>
+        </div>
+        <StatusBadge status={displayStatus} />
+      </div>
+
+      <dl className="mt-4 flex-1">
+        <div className="stack-row">
+          <dt className="stack-key">Service</dt>
+          <dd className="stack-val">{order.service}</dd>
+        </div>
+        <div className="stack-row">
+          <dt className="stack-key">Quantity</dt>
+          <dd className="stack-val tnum">{Number(order.quantity).toLocaleString('en-IN')}</dd>
+        </div>
+        <div className="stack-row">
+          <dt className="stack-key">Rate</dt>
+          <dd className="stack-val tnum">₹{order.rate} / 1000</dd>
+        </div>
+        <div className="stack-row">
+          <dt className="stack-key">Placed</dt>
+          <dd className="stack-val">
+            {new Date(order.createdAt).toLocaleDateString('en-IN', {
+              year: 'numeric', month: 'short', day: 'numeric',
             })}
-      </p>
-      <p>
-        <span className="font-semibold">Last Status:</span>{' '} {/* Changed to Last Status */}
-        <span className={`font-bold ${getStatusTextColor(lastCheckedOrderStatusDetails?.status || order.lastStatus)}`}>
-          {/* Display the dynamically checked status if available, otherwise default to prop status */}
-          {lastCheckedOrderStatusDetails?.status || order.lastStatus}
-        </span>
-      </p>
-      <p>
-        <span className="font-semibold">Start Count:</span>{' '}
-        {/* Display start_count directly from order prop */}
-        {lastCheckedOrderStatusDetails?.start_count || order.start_count} 
-      </p>
+          </dd>
+        </div>
+        <div className="stack-row">
+          <dt className="stack-key">Start count</dt>
+          <dd className="stack-val tnum">{startCount ?? '—'}</dd>
+        </div>
+        <div className="stack-row">
+          <dt className="stack-key">Refill</dt>
+          <dd className="stack-val">{refillLabel}</dd>
+        </div>
+      </dl>
 
       {order.lifecycleStatus === 'RECONCILIATION_REQUIRED' && (
-        <div className="rounded-md border border-amber-500/60 bg-amber-950/40 p-3 text-sm text-amber-200">
-          Provider confirmation is uncertain. This order is held for support reconciliation and will not be submitted again automatically.
-        </div>
+        <p className="mt-3 rounded-xl border border-state-warning/30 bg-state-warning-bg px-3 py-2.5 text-xs leading-relaxed text-state-warning">
+          Provider confirmation is uncertain. Support is reconciling this order and it will not be
+          submitted again automatically.
+        </p>
       )}
       {order.lifecycleStatus === 'PROVIDER_REJECTED' && (
-        <div className="rounded-md border border-red-500/60 bg-red-950/40 p-3 text-sm text-red-200">
-          The provider rejected this order and the wallet debit was refunded.
-        </div>
+        <p className="mt-3 rounded-xl border border-state-danger/30 bg-state-danger-bg px-3 py-2.5 text-xs leading-relaxed text-state-danger">
+          The provider rejected this order and your wallet was refunded.
+        </p>
       )}
 
-      {/* Display additional order status details ONLY if they have been explicitly fetched */}
       {lastCheckedOrderStatusDetails && (
-        <div className="bg-gray-700 p-3 rounded-md text-sm space-y-1 border border-gray-600">
-          <p><span className="font-semibold text-gray-300">Charge:</span> {lastCheckedOrderStatusDetails.charge} {lastCheckedOrderStatusDetails.currency}</p>
-          <p><span className="font-semibold text-gray-300">Remains:</span> {lastCheckedOrderStatusDetails.remains}</p>
-          {/* start_count is now always from order.start_count so no need to repeat it here if it's already shown above */}
+        <div className="mt-3 rounded-xl bg-surface-sunken px-3 py-2.5 text-xs text-ink-soft">
+          <span className="font-semibold text-ink">Charge:</span>{' '}
+          {lastCheckedOrderStatusDetails.charge} {lastCheckedOrderStatusDetails.currency}
+          <span className="mx-2 text-ink-faint">|</span>
+          <span className="font-semibold text-ink">Remains:</span>{' '}
+          {lastCheckedOrderStatusDetails.remains}
         </div>
       )}
 
-      <p>
-        <span className="font-semibold">Refill:</span>{' '}
-        {order.refillRequest ? (
-          `${order.refillRequest.status} (request ${order.refillRequest.id})`
-        ) : order.refill === null ? (
-          'Not Available'
-        ) : order.refill === "" ? (
-          'Available (click to request)'
-        ) : ( // Assuming it's a non-empty string (refillId) if not null or ""
-          `Refill in progress (ID: ${order.refill})`
-        )}
-      </p>
+      {currentRefillStatus && (
+        <p className="mt-3 text-center text-xs text-ink-muted">Refill status: {currentRefillStatus}</p>
+      )}
 
-      <div className="flex flex-col gap-2"> {/* Container for buttons */}
+      <div className="mt-4 flex flex-col gap-2 border-t border-line pt-4">
         <button
+          type="button"
           onClick={() => navigate(`/orders/${order.orderId || order.localOrderId}`)}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn-secondary btn-sm"
         >
-          <Info size={16} className="mr-2" />
-          View Timeline & Details
+          <Info size={16} aria-hidden="true" />
+          View Timeline &amp; Details
         </button>
-        {/* Conditional Refill Button: Show if order.refill is exactly an empty string "" */}
+
         {canContactProvider && order.refill !== null && !activeRefill && (
           <button
+            type="button"
             onClick={handleRequestRefill}
-            disabled={refillStatusLoading || checkingOrderStatusLoading} // Disable if any other operation is loading
-            className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-md bg-purple-600 hover:bg-purple-700 text-white font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={refillStatusLoading || checkingOrderStatusLoading}
+            className="btn-secondary btn-sm"
           >
-            <RotateCcw size={18} />
+            <RotateCcw size={16} aria-hidden="true" />
             Request Refill
           </button>
         )}
 
-        {/* Conditional Check Refill Status Button: Show if order.refill is a non-empty string (refillId) */}
         {canContactProvider && order.refillRequest && (
-          <div className="mt-1"> {/* Use mt-1 for a smaller gap if both buttons are present */}
-            <button
-              onClick={handleCheckRefillStatus}
-              disabled={refillStatusLoading || checkingOrderStatusLoading} // Disable if any other operation is loading
-              className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Search size={18} />
-              {refillStatusLoading ? 'Checking Refill...' : 'Check Refill Status'}
-            </button>
-            {currentRefillStatus && (
-              <p className="mt-2 text-center text-sm text-blue-300">Refill Status: {currentRefillStatus}</p>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={handleCheckRefillStatus}
+            disabled={refillStatusLoading || checkingOrderStatusLoading}
+            className="btn-secondary btn-sm"
+          >
+            <Search size={16} aria-hidden="true" />
+            {refillStatusLoading ? 'Checking Refill...' : 'Check Refill Status'}
+          </button>
         )}
 
-        {/* Check Main Order Status Button */}
-        {canContactProvider && order.lastStatus !== 'Completed' && (<div className="mt-1">
+        {canContactProvider && order.lastStatus !== 'Completed' && (
           <button
+            type="button"
             onClick={handleCheckOrderStatus}
-            disabled={checkingOrderStatusLoading || refillStatusLoading} // Disable if any other operation is loading
-            className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-md bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={checkingOrderStatusLoading || refillStatusLoading}
+            className="btn-primary btn-sm"
           >
-            <RefreshCcw size={18} />
+            <RefreshCcw size={16} aria-hidden="true" />
             {checkingOrderStatusLoading ? 'Updating Status...' : 'Check Order Status'}
           </button>
-        </div>)}
+        )}
       </div>
-    </div>
+    </article>
   );
 };
 

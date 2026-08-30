@@ -1,53 +1,56 @@
-// components/TransactionCard.jsx
-import React from 'react';
-import { CreditCard, Calendar, ShoppingBag } from 'lucide-react'; // Import necessary icons
-
+import { ArrowDownLeft, ArrowUpRight } from 'lucide-react';
+import { StatusBadge } from '../components/ui/Primitives';
 
 const TransactionCard = ({ payment }) => {
   const status = payment.status || 'RECORDED';
-  const normalizedStatus = status.toLowerCase();
+  const amount = Number(payment.amount) || 0;
+  const isCredit = amount >= 0;
+  const Icon = isCredit ? ArrowDownLeft : ArrowUpRight;
 
   return (
-    <div className="bg-black/90 backdrop-blur-sm shadow-xl rounded-2xl max-w-md w-full p-6 border border-purple-900/30 transition-all duration-300 hover:shadow-2xl hover:scale-105">
-      <div className="flex items-center gap-3 mb-4">
-        <CreditCard className="w-6 h-6 text-purple-400" />
-        <h3 className="text-xl font-semibold text-purple-400">Wallet Activity</h3>
+    <article className="card card-hover p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+              isCredit ? 'bg-state-success-bg text-state-success' : 'bg-surface-sunken text-ink-soft'
+            }`}
+          >
+            <Icon className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-ink-soft">
+              {isCredit ? 'Money added' : 'Order payment'}
+            </p>
+            <p className="tnum text-lg font-bold text-ink">
+              {isCredit ? '+' : '-'}₹{Math.abs(amount).toFixed(2)}
+            </p>
+          </div>
+        </div>
+        <StatusBadge status={status} />
       </div>
 
-      <div className="flex items-center gap-2 mb-3"> {/* Added margin-bottom */}
-          <span className="text-purple-200">Status:</span>
-          <span className={`font-medium ${
-            ['recorded', 'completed', 'legacy_recorded'].includes(normalizedStatus) ? 'text-green-400' :
-            normalizedStatus === 'pending' ? 'text-yellow-400' :
-            'text-red-400'
-          }`}>
-            {status.replaceAll('_', ' ')}
-          </span>
+      <dl className="mt-3 border-t border-line pt-3">
+        <div className="stack-row">
+          <dt className="stack-key">Reference</dt>
+          <dd className="stack-val break-all font-mono text-xs">{payment.orderId}</dd>
         </div>
-      
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="text-purple-200">Amount:</span>
-          <span className="text-purple-50 font-medium">₹{payment.amount.toFixed(2)}</span>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <span className="text-purple-200">Order ID:</span>
-          <span className="text-purple-50 font-medium break-all">{payment.orderId}</span> {/* break-all for long IDs */}
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <span className="text-purple-200">Date:</span>
-          <span className="text-purple-50 font-medium">
+        <div className="stack-row">
+          <dt className="stack-key">Date</dt>
+          <dd className="stack-val">
             {new Date(payment.date).toLocaleDateString('en-IN', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric'
+              year: 'numeric', month: 'short', day: 'numeric',
             })}
-          </span>
+          </dd>
         </div>
-      </div>
-    </div>
+        {Number.isFinite(payment.balanceAfterMinor) && (
+          <div className="stack-row">
+            <dt className="stack-key">Balance after</dt>
+            <dd className="stack-val tnum">₹{(payment.balanceAfterMinor / 100).toFixed(2)}</dd>
+          </div>
+        )}
+      </dl>
+    </article>
   );
 };
 

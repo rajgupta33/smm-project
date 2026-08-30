@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
+import { ReceiptText } from 'lucide-react';
 import ResponsiveNavbar from '../../components/NavBar';
+import DataTable from '../../components/ui/DataTable';
+import { EmptyState, Notice, StatusBadge } from '../../components/ui/Primitives';
 import { paymentApi } from '../../service/api';
 
 const statuses = ['', 'CREATED', 'PENDING', 'SUCCESS', 'FAILED', 'EXPIRED', 'REFUNDED', 'DISPUTED'];
+
+const dateTime = (value) =>
+  new Date(value).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState([]);
@@ -31,45 +37,96 @@ export default function PaymentsPage() {
     }
   }
 
+  const columns = [
+    {
+      key: 'order',
+      header: 'Order',
+      primary: true,
+      render: (row) => <span className="break-all font-mono text-xs">{row.merchantOrderId}</span>,
+    },
+    { key: 'user', header: 'User', render: (row) => row.customerId || row.userId },
+    {
+      key: 'amount',
+      header: 'Amount',
+      render: (row) => (
+        <span className="tnum font-semibold text-ink">
+          ₹{(row.amountMinor / 100).toLocaleString('en-IN')}
+        </span>
+      ),
+    },
+    {
+      key: 'gateway',
+      header: 'Gateway',
+      render: (row) => (
+        <span className="text-xs">
+          {row.gateway}
+          <br />
+          <span className="font-mono text-ink-muted">
+            {row.gatewayPaymentId || row.gatewayOrderId || '—'}
+          </span>
+        </span>
+      ),
+    },
+    { key: 'status', header: 'Status', render: (row) => <StatusBadge status={row.status} /> },
+    {
+      key: 'credited',
+      header: 'Wallet credited',
+      render: (row) => (row.creditedAt ? dateTime(row.creditedAt) : <span className="text-ink-faint">No</span>),
+    },
+    { key: 'created', header: 'Created', render: (row) => dateTime(row.createdAt), mobileHidden: true },
+  ];
+
   return (
-    <>
+    <div className="min-h-screen bg-surface-sunken">
       <ResponsiveNavbar />
-      <main className="min-h-screen bg-gradient-to-br from-black to-purple-950 p-6 text-white">
-        <div className="mx-auto max-w-6xl">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <h1 className="text-4xl font-bold text-purple-300">Cashfree payments</h1>
-            <select aria-label="Filter payment status" value={status} onChange={(event) => setStatus(event.target.value)}
-              className="rounded-lg border border-purple-700 bg-black px-4 py-2">
-              {statuses.map((value) => <option key={value} value={value}>{value || 'ALL STATUSES'}</option>)}
+      <main className="page">
+        <header className="page-head">
+          <div>
+            <h1 className="page-title">Cashfree payments</h1>
+            <p className="page-sub">Every top-up, and whether the wallet was credited.</p>
+          </div>
+          <div className="field">
+            <label htmlFor="payment-status" className="sr-only">Filter payment status</label>
+            <select
+              id="payment-status"
+              aria-label="Filter payment status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              className="select"
+            >
+              {statuses.map((value) => (
+                <option key={value} value={value}>{value || 'All statuses'}</option>
+              ))}
             </select>
           </div>
-          {message && <p role="status" className="my-4 text-purple-200">{message}</p>}
-          <div className="mt-6 overflow-x-auto rounded-xl border border-purple-800">
-            <table className="w-full min-w-[800px] text-left text-sm">
-              <thead className="bg-purple-950 text-purple-200"><tr>
-                <th className="p-3">Order</th><th className="p-3">User</th><th className="p-3">Amount</th>
-                <th className="p-3">Gateway / reference</th><th className="p-3">Status</th>
-                <th className="p-3">Wallet credited</th><th className="p-3">Created</th><th className="p-3">Action</th>
-              </tr></thead>
-              <tbody>
-                {payments.map((payment) => <tr key={payment.id} className="border-t border-purple-900 bg-black/60">
-                  <td className="p-3">{payment.merchantOrderId}</td>
-                  <td className="p-3">{payment.customerId || payment.userId}</td>
-                  <td className="p-3">₹{(payment.amountMinor / 100).toLocaleString('en-IN')}</td>
-                  <td className="p-3">{payment.gateway}<br />{payment.gatewayPaymentId || payment.gatewayOrderId || '—'}</td>
-                  <td className="p-3">{payment.status}</td>
-                  <td className="p-3">{payment.creditedAt ? new Date(payment.creditedAt).toLocaleString() : 'No'}</td>
-                  <td className="p-3">{new Date(payment.createdAt).toLocaleString()}</td>
-                  <td className="p-3"><button type="button" onClick={() => reconcile(payment)}
-                    disabled={payment.status === 'SUCCESS'} className="rounded bg-purple-700 px-3 py-2 disabled:opacity-40">
-                    Reconcile
-                  </button></td>
-                </tr>)}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        </header>
+
+        {message && <div className="mb-4"><Notice tone="info">{message}</Notice></div>}
+
+        <DataTable
+          caption="Cashfree payments"
+          columns={columns}
+          rows={payments}
+          rowKey={(row) => row.id}
+          empty={
+            <EmptyState
+              icon={ReceiptText}
+              title="No payments to show"
+              description="Payments matching this filter will appear here."
+            />
+          }
+          actions={(row) => (
+            <button
+              type="button"
+              onClick={() => reconcile(row)}
+              disabled={row.status === 'SUCCESS'}
+              className="btn-secondary btn-sm"
+            >
+              Reconcile
+            </button>
+          )}
+        />
       </main>
-    </>
+    </div>
   );
 }

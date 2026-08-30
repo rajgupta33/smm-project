@@ -25,15 +25,15 @@ const PaymentForm = () => {
 
     // Frontend validation
     if (!userId.trim()) {
-      toast.error('User ID cannot be empty.', { theme: "dark", className: "bg-purple-950 text-purple-50 border-purple-700" });
+      toast.error('User ID cannot be empty.', { theme: "dark", className: "bg-surface-sunken text-ink border-line" });
       return;
     }
     if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
-      toast.error('Amount must be a positive number.', { theme: "dark", className: "bg-purple-950 text-purple-50 border-purple-700" });
+      toast.error('Amount must be a positive number.', { theme: "dark", className: "bg-surface-sunken text-ink border-line" });
       return;
     }
     if (!reason.trim()) {
-      toast.error('A reason is required.', { theme: "dark", className: "bg-purple-950 text-purple-50 border-purple-700" });
+      toast.error('A reason is required.', { theme: "dark", className: "bg-surface-sunken text-ink border-line" });
       return;
     }
 
@@ -52,7 +52,7 @@ const PaymentForm = () => {
       if (response.success) { // This check is now based on the return value of serviceApi.addBalance
         toast.success(`Wallet adjusted for ${response.data.userId}: ₹${(response.data.amountMinor / 100).toFixed(2)}`, {
           theme: "dark",
-          className: "bg-purple-950 text-purple-50 border-purple-700",
+          className: "bg-surface-sunken text-ink border-line",
         });
 
         // Add a small delay before clearing the form fields
@@ -65,7 +65,7 @@ const PaymentForm = () => {
           // This else block might be hit if serviceApi.addBalance resolves with success: false
           toast.error(response.data || 'Payment processing failed.', {
               theme: "dark",
-              className: "bg-purple-950 text-purple-50 border-purple-700",
+              className: "bg-surface-sunken text-ink border-line",
           });
       }
 
@@ -74,24 +74,24 @@ const PaymentForm = () => {
       if (error.response) {
         toast.error(error.response.data.error || 'Payment processing failed', {
           theme: "dark",
-          className: "bg-purple-950 text-purple-50 border-purple-700",
+          className: "bg-surface-sunken text-ink border-line",
         });
       } else {
         toast.error('Failed to process payment', {
           theme: "dark",
-          className: "bg-purple-950 text-purple-50 border-purple-700",
+          className: "bg-surface-sunken text-ink border-line",
         });
       }
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-md mx-auto space-y-4 p-6 bg-gray-900 rounded-lg shadow-xl border border-purple-800">
-      <h2 className="text-2xl font-bold text-center text-purple-400 mb-6">Add Payment</h2>
+    <form onSubmit={handleSubmit} className="max-w-md mx-auto space-y-4 p-6 bg-surface rounded-lg shadow-card border border-line">
+      <h2 className="text-2xl font-bold text-center text-ink-muted mb-6">Add Payment</h2>
       {/* User ID Input */}
       <div className="space-y-2">
-        <label htmlFor="userId" className="text-purple-400 flex items-center gap-2">
-          <User className="w-4 h-4 text-purple-400" />
+        <label htmlFor="userId" className="text-ink-muted flex items-center gap-2">
+          <User className="w-4 h-4 text-ink-muted" />
           User ID
         </label>
         <input
@@ -100,14 +100,14 @@ const PaymentForm = () => {
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
           placeholder="Enter user ID"
-          className="w-full px-4 py-2 bg-gray-800 border border-purple-700 rounded-md text-purple-50 focus:border-purple-500 focus:outline-none transition-colors"
+          className="w-full px-4 py-2 bg-surface border border-line rounded-md text-ink focus:border-line focus:outline-none transition-colors"
         />
       </div>
 
       {/* Amount Input */}
       <div className="space-y-2">
-        <label htmlFor="amount" className="text-purple-400 flex items-center gap-2">
-          <CreditCard className="w-4 h-4 text-purple-400" />
+        <label htmlFor="amount" className="text-ink-muted flex items-center gap-2">
+          <CreditCard className="w-4 h-4 text-ink-muted" />
           Amount (₹)
         </label>
         <input
@@ -118,12 +118,12 @@ const PaymentForm = () => {
           placeholder="Enter amount"
           min="0"
           step="0.01"
-          className="w-full px-4 py-2 bg-gray-800 border border-purple-700 rounded-md text-purple-50 focus:border-purple-500 focus:outline-none transition-colors"
+          className="w-full px-4 py-2 bg-surface border border-line rounded-md text-ink focus:border-line focus:outline-none transition-colors"
         />
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="reason" className="text-purple-400">
+        <label htmlFor="reason" className="text-ink-muted">
           Reason
         </label>
         <input
@@ -132,17 +132,17 @@ const PaymentForm = () => {
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="Reason for this wallet credit"
-          className="w-full px-4 py-2 bg-gray-800 border border-purple-700 rounded-md text-purple-50 focus:border-purple-500 focus:outline-none transition-colors"
+          className="w-full px-4 py-2 bg-surface border border-line rounded-md text-ink focus:border-line focus:outline-none transition-colors"
         />
       </div>
 
       {/* Submit Button */}
       <button
         type="submit"
-        className="w-full py-3 bg-purple-700 hover:bg-purple-600 text-purple-50 font-semibold rounded-md flex items-center justify-center gap-2 transition-colors transform hover:scale-105 active:scale-95"
+        className="w-full py-3 bg-brand-gradient text-white hover:brightness-110 text-ink font-semibold rounded-md flex items-center justify-center gap-2 transition-colors transform hover:scale-105 active:scale-95"
       >
         Add Payment
-        <CheckCircle className="w-5 h-5 text-purple-50" />
+        <CheckCircle className="w-5 h-5 text-ink" />
       </button>
     </form>
   );

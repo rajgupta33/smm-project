@@ -157,10 +157,10 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
   }, [allServices, searchTerm, selectedCategoryFilter]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-950">
+    <div className="flex min-h-screen items-center justify-center bg-surface-sunken">
       {/* Main container with responsive max-width and styling */}
-      <div className="w-full max-w-3xl bg-gray-900 rounded-2xl shadow-xl border border-purple-700 p-4 sm:p-6 lg:p-8 space-y-6">
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-center text-purple-400 mb-6 tracking-wide">
+      <div className="w-full max-w-3xl bg-surface rounded-2xl shadow-card border border-line p-4 sm:p-6 lg:p-8 space-y-6">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-center text-ink-muted mb-6 tracking-wide">
           Create New Service
         </h1>
 
@@ -170,13 +170,13 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
             handleClearForm(); // Clear form state when navigating back
             setPageMode('dashboard');
           }}
-          className="mb-4 px-4 py-2 bg-gray-700 text-gray-100 rounded-md hover:bg-gray-600 transition-colors duration-200 flex items-center"
+          className="mb-4 px-4 py-2 bg-surface-sunken text-ink rounded-md hover:bg-surface-sunken transition-colors duration-200 flex items-center"
         >
           <X className="h-4 w-4 mr-2" /> Back to Dashboard
         </button>
 
         {/* Duplicate Existing Service Section */}
-        <div className="mb-6 bg-gray-800 p-4 rounded-lg border border-gray-700 space-y-4">
+        <div className="mb-6 bg-surface p-4 rounded-lg border border-line space-y-4">
           <h2 className="text-xl font-bold text-gray-200">Duplicate Existing Service</h2>
           
           {/* Search Input for duplication */}
@@ -187,22 +187,22 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
               id="search-service"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="mt-1 block w-full pl-10 pr-3 py-2 text-base border border-gray-700 rounded-lg shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm bg-gray-700 text-gray-100"
+              className="mt-1 block w-full pl-10 pr-3 py-2 text-base border border-line rounded-lg shadow-sm focus:outline-none focus:ring-brand-purple/40 focus:border-line sm:text-sm bg-surface-sunken text-ink"
               placeholder="Search by Name, ID, or Unique ID..."
             />
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" size={20} />
           </div>
 
           {/* Category Filter for duplication */}
           <div>
-            <label htmlFor="category-filter" className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
+            <label htmlFor="category-filter" className="block text-sm sm:text-base font-medium text-ink-soft mb-2">
               Filter by Category:
             </label>
             <select
               id="category-filter"
               value={selectedCategoryFilter}
               onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-700 rounded-lg shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm bg-gray-700 text-gray-100 appearance-none"
+              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-line rounded-lg shadow-sm focus:outline-none focus:ring-brand-purple/40 focus:border-line sm:text-sm bg-surface-sunken text-ink appearance-none"
             >
               {uniqueCategories.map(category => (
                 <option key={category} value={category}>{category}</option>
@@ -212,14 +212,14 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
 
           {/* Service Selection Dropdown for Duplication */}
           <div>
-            <label htmlFor="service-select-duplicate" className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
+            <label htmlFor="service-select-duplicate" className="block text-sm sm:text-base font-medium text-ink-soft mb-2">
               Select Service to Duplicate:
             </label>
             <select
               id="service-select-duplicate"
               value={selectedServiceIdForDuplication}
               onChange={(e) => setSelectedServiceIdForDuplication(e.target.value)}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-700 rounded-lg shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm bg-gray-800 text-gray-100 appearance-none"
+              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-line rounded-lg shadow-sm focus:outline-none focus:ring-brand-purple/40 focus:border-line sm:text-sm bg-surface text-ink appearance-none"
             >
               <option value="">-- Select a Service to Duplicate --</option>
               {filteredServicesForDuplication.length > 0 ? (
@@ -236,7 +236,7 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
           <button
             type="button"
             onClick={handleDuplicateService}
-            className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-300 w-full justify-center transform hover:scale-105"
+            className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-brand-gradient text-white hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-purple/40 transition-all duration-300 w-full justify-center transform hover:scale-105"
             disabled={loading || !selectedServiceIdForDuplication}
           >
             <Copy className="h-5 w-5 mr-2" /> Duplicate Selected Service
@@ -248,7 +248,7 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
           {/* Service ID and User Defined Unique ID fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="service" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="service" className="block text-sm font-medium text-ink-soft">
                 User Defined Unique ID (e.g., "SMM-IG-F-STD-001")
               </label>
               <input
@@ -258,12 +258,12 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
                 value={formData.service}
                 onChange={handleChange}
                 required
-                className={`mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 hover:border-purple-500 transition-colors`}
+                className={`mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 hover:border-line transition-colors`}
                 placeholder="User Defined Unique ID (e.g., SMM-IG-F-STD-001)"
               />
             </div>
             <div>
-              <label htmlFor="serviceId" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="serviceId" className="block text-sm font-medium text-ink-soft">
                 Service ID (e.g., "1", "2")
               </label>
               <input
@@ -273,7 +273,7 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
                 value={formData.serviceId}
                 onChange={handleChange}
                 required
-                className={`mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 hover:border-purple-500 transition-colors`}
+                className={`mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 hover:border-line transition-colors`}
                 placeholder="Unique numeric ID (e.g., 1, 2, 3)"
               />
             </div>
@@ -282,7 +282,7 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
           {/* Display Name and Internal Name fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="name" className="block text-sm font-medium text-ink-soft">
                 Display Name (Backend: name)
               </label>
               <input
@@ -292,12 +292,12 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
                 value={formData.name}
                 onChange={handleChange}
                 required={true}
-                className={`mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 hover:border-purple-500 transition-colors`}
+                className={`mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 hover:border-line transition-colors`}
                 placeholder="Name shown to customers (e.g., Followers, Likes)"
               />
             </div>
             <div>
-              <label htmlFor="internalName" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="internalName" className="block text-sm font-medium text-ink-soft">
                 Internal Name (Backend: internalName)
               </label>
               <input
@@ -307,7 +307,7 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
                 value={formData.internalName}
                 onChange={handleChange}
                 required={true}
-                className={`mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 hover:border-purple-500 transition-colors`}
+                className={`mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 hover:border-line transition-colors`}
                 placeholder="e.g., IG_FOLLOWERS_STANDARD"
               />
             </div>
@@ -316,7 +316,7 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
           {/* Rate, Min, Max fields */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label htmlFor="rate" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="rate" className="block text-sm font-medium text-ink-soft">
                 Rate per 1000 (Backend: rate)
               </label>
               <input
@@ -327,12 +327,12 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
                 onChange={handleChange}
                 required
                 step="0.01"
-                className="mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 hover:border-purple-500 transition-colors"
+                className="mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 hover:border-line transition-colors"
                 placeholder="e.90"
               />
             </div>
             <div>
-              <label htmlFor="min" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="min" className="block text-sm font-medium text-ink-soft">
                 Min Value (Backend: min - String)
               </label>
               <input
@@ -342,12 +342,12 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
                 value={formData.min}
                 onChange={handleChange}
                 required
-                className="mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 hover:border-purple-500 transition-colors"
+                className="mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 hover:border-line transition-colors"
                 placeholder="e.g., 50"
               />
             </div>
             <div>
-              <label htmlFor="max" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="max" className="block text-sm font-medium text-ink-soft">
                 Max Value (Backend: max - String)
               </label>
               <input
@@ -357,7 +357,7 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
                 value={formData.max}
                 onChange={handleChange}
                 required
-                className="mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 hover:border-purple-500 transition-colors"
+                className="mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 hover:border-line transition-colors"
                 placeholder="e.g., 10000"
               />
             </div>
@@ -372,9 +372,9 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
                 type="checkbox"
                 checked={formData.refill}
                 onChange={handleChange}
-                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-700 rounded bg-gray-800"
+                className="h-4 w-4 text-purple-600 focus:ring-brand-purple/40 border-line rounded bg-surface"
               />
-              <label htmlFor="refill" className="ml-2 block text-sm text-gray-100">
+              <label htmlFor="refill" className="ml-2 block text-sm text-ink">
                 Refill
               </label>
             </div>
@@ -385,9 +385,9 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
                 type="checkbox"
                 checked={formData.cancel}
                 onChange={handleChange}
-                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-700 rounded bg-gray-800"
+                className="h-4 w-4 text-purple-600 focus:ring-brand-purple/40 border-line rounded bg-surface"
               />
-              <label htmlFor="cancel" className="ml-2 block text-sm text-gray-100">
+              <label htmlFor="cancel" className="ml-2 block text-sm text-ink">
                 Cancel
               </label>
             </div>
@@ -397,7 +397,7 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
           <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 mt-4">
             <button
               type="submit"
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-brand-blue text-white hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
               disabled={loading}
             >
               {loading ? (
@@ -409,7 +409,7 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
             <button
               type="button"
               onClick={handleClearForm}
-              className="inline-flex items-center px-4 py-2 border border-purple-700 text-sm font-medium rounded-lg shadow-md text-gray-300 bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
+              className="inline-flex items-center px-4 py-2 border border-line text-sm font-medium rounded-lg shadow-md text-ink-soft bg-surface hover:bg-surface-sunken focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-purple/40 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
             >
               Clear Form
             </button>

@@ -20,14 +20,14 @@ const SMMServiceForm = ({
   const isUpdateMode = mode === 'update_existing';
 
   return (
-    <div className="w-full max-w-3xl bg-gray-900 rounded-2xl shadow-xl border border-purple-700 p-4 sm:p-6 lg:p-8 space-y-6"> {/* Enhanced styling */}
-      <h1 className="text-2xl sm:text-3xl font-extrabold text-center text-purple-400 mb-6 tracking-wide"> {/* Enhanced styling */}
+    <div className="w-full max-w-3xl bg-surface rounded-2xl shadow-card border border-line p-4 sm:p-6 lg:p-8 space-y-6"> {/* Enhanced styling */}
+      <h1 className="text-2xl sm:text-3xl font-extrabold text-center text-ink-muted mb-6 tracking-wide"> {/* Enhanced styling */}
         {isCreateMode ? 'Create New Service' : 'Update Existing Service'}
       </h1>
 
       {isUpdateMode && (
         <div className="mb-6">
-          <label htmlFor="service-select" className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
+          <label htmlFor="service-select" className="block text-sm sm:text-base font-medium text-ink-soft mb-2">
             Select Service to Update:
           </label>
           <div className="relative"> {/* Added relative for loader positioning */}
@@ -35,7 +35,7 @@ const SMMServiceForm = ({
               id="service-select"
               value={selectedServiceRefId}
               onChange={handleSelectServiceForUpdate}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-700 rounded-lg shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm bg-gray-800 text-gray-100 appearance-none" /* Improved select style */
+              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-line rounded-lg shadow-sm focus:outline-none focus:ring-brand-purple/40 focus:border-line sm:text-sm bg-surface text-ink appearance-none" /* Improved select style */
               disabled={loadingCustomServices} // Disable dropdown while loading
             >
               <option value="">
@@ -49,7 +49,7 @@ const SMMServiceForm = ({
             </select>
             {loadingCustomServices && ( // Loader inside dropdown
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <Loader2 className="animate-spin h-5 w-5 text-purple-400" />
+                <Loader2 className="animate-spin h-5 w-5 text-ink-muted" />
               </div>
             )}
           </div>
@@ -58,7 +58,7 @@ const SMMServiceForm = ({
 
       {isCreateMode && (
         <div className="mb-6">
-          <label htmlFor="service-select" className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
+          <label htmlFor="service-select" className="block text-sm sm:text-base font-medium text-ink-soft mb-2">
             Select Service to Update:
           </label>
           <div className="relative"> {/* Added relative for loader positioning */}
@@ -66,7 +66,7 @@ const SMMServiceForm = ({
               id="service-select"
               value={selectedServiceRefId}
               onChange={handleSelectServiceForUpdate}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-700 rounded-lg shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm bg-gray-800 text-gray-100 appearance-none" /* Improved select style */
+              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-line rounded-lg shadow-sm focus:outline-none focus:ring-brand-purple/40 focus:border-line sm:text-sm bg-surface text-ink appearance-none" /* Improved select style */
               disabled={loadingCustomServices} // Disable dropdown while loading
             >
               <option value="">
@@ -80,7 +80,7 @@ const SMMServiceForm = ({
             </select>
             {loadingCustomServices && ( // Loader inside dropdown
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <Loader2 className="animate-spin h-5 w-5 text-purple-400" />
+                <Loader2 className="animate-spin h-5 w-5 text-ink-muted" />
               </div>
             )}
           </div>
@@ -92,7 +92,7 @@ const SMMServiceForm = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="schemaServiceId" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="schemaServiceId" className="block text-sm font-medium text-ink-soft">
               User Defined Unique ID (Backend: service - String, Unique)
               </label>
               <input
@@ -103,14 +103,14 @@ const SMMServiceForm = ({
                 onChange={handleChange}
                 required
                 readOnly={isUpdateMode} // Read-only in update mode
-                className={`mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 ${
-                  isUpdateMode ? 'bg-gray-700 cursor-not-allowed' : 'hover:border-purple-500 transition-colors'
+                className={`mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 ${
+                  isUpdateMode ? 'bg-surface-sunken cursor-not-allowed' : 'hover:border-line transition-colors'
                 }`}
                 placeholder="Unique numeric ID (e.g., 1, 2, 3)"
               />
             </div>
             <div>
-              <label htmlFor="schemaServiceRef" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="schemaServiceRef" className="block text-sm font-medium text-ink-soft">
               Service ID (Backend: serviceId - String)
               </label>
               <input
@@ -121,8 +121,8 @@ const SMMServiceForm = ({
                 onChange={handleChange}
                 required
                 readOnly={isUpdateMode} // Read-only in update mode
-                className={`mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 ${
-                  isUpdateMode ? 'bg-gray-700 cursor-not-allowed' : 'hover:border-purple-500 transition-colors'
+                className={`mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 ${
+                  isUpdateMode ? 'bg-surface-sunken cursor-not-allowed' : 'hover:border-line transition-colors'
                 }`}
                 placeholder="Unique text ID (e.g., SMM-IG-F-STD-001)"
               />
@@ -131,7 +131,7 @@ const SMMServiceForm = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="name" className="block text-sm font-medium text-ink-soft">
                 Display Name (Backend: name)
               </label>
               <input
@@ -142,14 +142,14 @@ const SMMServiceForm = ({
                 onChange={handleChange}
                 required={isCreateMode} // Required only in create mode
                 readOnly={isUpdateMode} // Read-only in update mode
-                className={`mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 ${
-                  isUpdateMode ? 'bg-gray-700 cursor-not-allowed' : 'hover:border-purple-500 transition-colors'
+                className={`mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 ${
+                  isUpdateMode ? 'bg-surface-sunken cursor-not-allowed' : 'hover:border-line transition-colors'
                 }`}
                 placeholder="Name shown to customers (e.g., Followers, Likes)"
               />
             </div>
             <div>
-              <label htmlFor="internalName" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="internalName" className="block text-sm font-medium text-ink-soft">
                 Internal Name (Backend: internalName)
               </label>
               <input
@@ -160,8 +160,8 @@ const SMMServiceForm = ({
                 onChange={handleChange}
                 required={isCreateMode} // Required only in create mode
                 readOnly={isUpdateMode} // Read-only in update mode
-                className={`mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 ${
-                  isUpdateMode ? 'bg-gray-700 cursor-not-allowed' : 'hover:border-purple-500 transition-colors'
+                className={`mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 ${
+                  isUpdateMode ? 'bg-surface-sunken cursor-not-allowed' : 'hover:border-line transition-colors'
                 }`}
                 placeholder="e.g., IG_FOLLOWERS_STANDARD"
               />
@@ -170,7 +170,7 @@ const SMMServiceForm = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="type" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="type" className="block text-sm font-medium text-ink-soft">
                 Type (Backend: type)
               </label>
               <input
@@ -180,14 +180,14 @@ const SMMServiceForm = ({
                 value={formData.type}
                 onChange={handleChange}
                 readOnly={isUpdateMode} // Read-only in update mode
-                className={`mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 ${
-                  isUpdateMode ? 'bg-gray-700 cursor-not-allowed' : 'hover:border-purple-500 transition-colors'
+                className={`mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 ${
+                  isUpdateMode ? 'bg-surface-sunken cursor-not-allowed' : 'hover:border-line transition-colors'
                 }`}
                 placeholder="e.g., Default, Premium"
               />
             </div>
             <div>
-              <label htmlFor="category" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="category" className="block text-sm font-medium text-ink-soft">
                 Category (Backend: category)
               </label>
               <input
@@ -197,8 +197,8 @@ const SMMServiceForm = ({
                 value={formData.category}
                 onChange={handleChange}
                 readOnly={isUpdateMode} // Read-only in update mode
-                className={`mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 ${
-                  isUpdateMode ? 'bg-gray-700 cursor-not-allowed' : 'hover:border-purple-500 transition-colors'
+                className={`mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 ${
+                  isUpdateMode ? 'bg-surface-sunken cursor-not-allowed' : 'hover:border-line transition-colors'
                 }`}
                 placeholder="e.g., Instagram, Facebook"
               />
@@ -207,7 +207,7 @@ const SMMServiceForm = ({
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label htmlFor="rate" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="rate" className="block text-sm font-medium text-ink-soft">
                 Rate (Backend: rate)
               </label>
               <input
@@ -218,12 +218,12 @@ const SMMServiceForm = ({
                 onChange={handleChange}
                 required
                 step="0.01"
-                className="mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 hover:border-purple-500 transition-colors"
+                className="mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 hover:border-line transition-colors"
                 placeholder="e.g., 0.90"
               />
             </div>
             <div>
-              <label htmlFor="min" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="min" className="block text-sm font-medium text-ink-soft">
                 Min Value (Backend: min - String)
               </label>
               <input
@@ -232,12 +232,12 @@ const SMMServiceForm = ({
                 id="min"
                 value={formData.min}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 hover:border-purple-500 transition-colors"
+                className="mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 hover:border-line transition-colors"
                 placeholder="e.g., 50"
               />
             </div>
             <div>
-              <label htmlFor="max" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="max" className="block text-sm font-medium text-ink-soft">
                 Max Value (Backend: max - String)
               </label>
               <input
@@ -246,7 +246,7 @@ const SMMServiceForm = ({
                 id="max"
                 value={formData.max}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 hover:border-purple-500 transition-colors"
+                className="mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 hover:border-line transition-colors"
                 placeholder="e.g., 10000"
               />
             </div>
@@ -260,9 +260,9 @@ const SMMServiceForm = ({
                 type="checkbox"
                 checked={formData.refill}
                 onChange={handleChange}
-                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-700 rounded bg-gray-800"
+                className="h-4 w-4 text-purple-600 focus:ring-brand-purple/40 border-line rounded bg-surface"
               />
-              <label htmlFor="refill" className="ml-2 block text-sm text-gray-100">
+              <label htmlFor="refill" className="ml-2 block text-sm text-ink">
                 Refill
               </label>
             </div>
@@ -273,9 +273,9 @@ const SMMServiceForm = ({
                 type="checkbox"
                 checked={formData.cancel}
                 onChange={handleChange}
-                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-700 rounded bg-gray-800"
+                className="h-4 w-4 text-purple-600 focus:ring-brand-purple/40 border-line rounded bg-surface"
               />
-              <label htmlFor="cancel" className="ml-2 block text-sm text-gray-100">
+              <label htmlFor="cancel" className="ml-2 block text-sm text-ink">
                 Cancel
               </label>
             </div>
@@ -287,7 +287,7 @@ const SMMServiceForm = ({
                     <button
                     type="button"
                     onClick={handleDuplicateService}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-brand-gradient text-white hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-purple/40 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
                     disabled={loading}
                     >
                     <Copy className="h-5 w-5 mr-2" /> Duplicate Service
@@ -296,7 +296,7 @@ const SMMServiceForm = ({
                   <button
                     type="submit"
                     onClick={isCreateMode ? handleSubmit : undefined}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-brand-blue text-white hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
                     disabled={loading}
                   >
                     {loading ? (
@@ -310,14 +310,14 @@ const SMMServiceForm = ({
                   <button
                     type="button"
                     onClick={handleClearForm}
-                    className="inline-flex items-center px-4 py-2 border border-purple-700 text-sm font-medium rounded-lg shadow-md text-gray-300 bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
+                    className="inline-flex items-center px-4 py-2 border border-line text-sm font-medium rounded-lg shadow-md text-ink-soft bg-surface hover:bg-surface-sunken focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-purple/40 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
                   >
                     Clear Form
                   </button>
                   <button
                     type="button"
                     onClick={() => setMode('initial')} // Back to home button
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-state-danger text-white hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
             >
               Back to Home
             </button>
@@ -327,7 +327,7 @@ const SMMServiceForm = ({
 
       {/* Message if in update mode but no service selected */}
       {isUpdateMode && selectedServiceRefId === '' && (
-        <p className="text-center text-gray-400 text-lg mt-4 animate-pulse">
+        <p className="text-center text-ink-muted text-lg mt-4 animate-pulse">
           Please select a service from the dropdown above to update.
         </p>
       )}

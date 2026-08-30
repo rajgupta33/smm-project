@@ -54,51 +54,51 @@ export default function SupportPage() {
 
   return <>
     <ResponsiveNavbar />
-    <main className="min-h-screen bg-gradient-to-br from-black to-purple-950 p-4 text-white sm:p-8">
+    <main className="min-h-screen bg-surface-sunken px-4 py-6 sm:px-6 sm:py-8">
       <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[360px_1fr]">
         <div className="space-y-6">
-          <form onSubmit={createTicket} className="space-y-4 rounded-2xl border border-purple-800 bg-black/70 p-5">
-            <h1 className="text-2xl font-bold text-purple-300">Contact support</h1>
+          <form onSubmit={createTicket} className="space-y-4 rounded-2xl border border-line bg-surface p-5">
+            <h1 className="text-2xl font-bold text-ink">Contact support</h1>
             <label className="block text-sm">Category
               <select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}
-                className="mt-1 w-full rounded border border-purple-700 bg-black p-3">
+                className="mt-1 w-full rounded border border-line bg-surface p-3">
                 {categories.map((category) => <option key={category}>{category}</option>)}
               </select>
             </label>
             <label className="block text-sm">Order ID (required for order issues)
               <input value={form.orderId} onChange={(event) => setForm({ ...form, orderId: event.target.value })}
-                className="mt-1 w-full rounded border border-purple-700 bg-black p-3" />
+                className="mt-1 w-full rounded border border-line bg-surface p-3" />
             </label>
             <label className="block text-sm">Message
               <textarea required maxLength={4000} value={form.message}
                 onChange={(event) => setForm({ ...form, message: event.target.value })}
-                className="mt-1 min-h-32 w-full rounded border border-purple-700 bg-black p-3" />
+                className="mt-1 min-h-32 w-full rounded border border-line bg-surface p-3" />
             </label>
-            <button className="w-full rounded bg-purple-600 p-3 font-semibold">Create ticket</button>
+            <button className="w-full rounded bg-brand-gradient text-white p-3 font-semibold">Create ticket</button>
           </form>
           <section className="space-y-2">
             <h2 className="text-xl font-bold">Your tickets</h2>
             {tickets.map((ticket) => <button key={ticket.id} type="button" onClick={() => open(ticket.publicTicketId)}
-              className="block w-full rounded-lg border border-purple-900 bg-black/60 p-3 text-left">
+              className="block w-full rounded-lg border border-line bg-surface p-3 text-left">
               <strong>{ticket.publicTicketId}</strong><span className="float-right text-xs">{ticket.status}</span>
-              <div className="text-sm text-purple-200">{ticket.category}{ticket.orderId ? ` · ${ticket.orderId}` : ''}</div>
+              <div className="text-sm text-ink-soft">{ticket.category}{ticket.orderId ? ` · ${ticket.orderId}` : ''}</div>
             </button>)}
           </section>
         </div>
-        <section className="rounded-2xl border border-purple-800 bg-black/60 p-6">
-          {notice && <p role="status" className="mb-4 text-purple-200">{notice}</p>}
+        <section className="rounded-2xl border border-line bg-surface p-6">
+          {notice && <p role="status" className="mb-4 text-ink-soft">{notice}</p>}
           {!detail ? <p>Select a ticket to view the conversation.</p> : <>
             <div className="flex flex-wrap justify-between gap-3"><h2 className="text-2xl font-bold">{detail.ticket.publicTicketId}</h2>
               <span>{detail.ticket.status}</span></div>
             <div className="mt-6 space-y-3">{detail.messages.map((message) => <article key={message.id}
-              className={`rounded-lg p-4 ${message.senderType === 'CUSTOMER' ? 'bg-purple-950' : 'bg-gray-800'}`}>
+              className={`rounded-lg p-4 ${message.senderType === 'CUSTOMER' ? 'bg-surface-sunken' : 'bg-surface'}`}>
               <strong className="text-sm">{message.senderType}</strong><p className="mt-1 whitespace-pre-wrap">{message.message}</p>
-              <time className="text-xs text-gray-400">{new Date(message.createdAt).toLocaleString()}</time>
+              <time className="text-xs text-ink-muted">{new Date(message.createdAt).toLocaleString()}</time>
             </article>)}</div>
             {detail.ticket.status !== 'CLOSED' && <form onSubmit={sendReply} className="mt-6 flex gap-2">
               <input aria-label="Reply message" required maxLength={4000} value={reply} onChange={(event) => setReply(event.target.value)}
-                className="min-w-0 flex-1 rounded border border-purple-700 bg-black p-3" />
-              <button className="rounded bg-purple-600 px-5 font-semibold">Reply</button>
+                className="min-w-0 flex-1 rounded border border-line bg-surface p-3" />
+              <button className="rounded bg-brand-gradient text-white px-5 font-semibold">Reply</button>
             </form>}
           </>}
         </section>

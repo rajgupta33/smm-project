@@ -258,10 +258,10 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
   }, [serviceToDelete, setAllServices, setCustomServices, setPageMode]); // Dependencies for handleDeleteService
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-950 py-8">
+    <div className="min-h-screen flex items-center justify-center bg-surface-sunken py-8">
       {/* Centered container */}
-      <div className="w-full max-w-3xl bg-gray-900 rounded-2xl shadow-xl border border-purple-700 p-4 sm:p-6 lg:p-8 space-y-6">
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-center text-purple-400 mb-6 tracking-wide">
+      <div className="w-full max-w-3xl bg-surface rounded-2xl shadow-card border border-line p-4 sm:p-6 lg:p-8 space-y-6">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-center text-ink-muted mb-6 tracking-wide">
           Update Existing Service
         </h1>
 
@@ -271,14 +271,14 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
             handleClearForm(); // Clear form state when navigating back
             setPageMode('dashboard');
           }}
-          className="mb-4 px-4 py-2 bg-gray-700 text-gray-100 rounded-md hover:bg-gray-600 transition-colors duration-200 flex items-center"
+          className="mb-4 px-4 py-2 bg-surface-sunken text-ink rounded-md hover:bg-surface-sunken transition-colors duration-200 flex items-center"
         >
           <X className="h-4 w-4 mr-2" /> Back to Dashboard
         </button>
 
         {/* Service Selection Dropdown */}
         <div className="mb-6">
-          <label htmlFor="service-select" className="block text-sm sm:text-base font-medium text-gray-300 mb-2">
+          <label htmlFor="service-select" className="block text-sm sm:text-base font-medium text-ink-soft mb-2">
             Select Service to Update:
           </label>
           <div className="relative">
@@ -286,7 +286,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
               id="service-select"
               value={selectedServiceId}
               onChange={handleSelectServiceForUpdate}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-700 rounded-lg shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm bg-gray-800 text-gray-100 appearance-none"
+              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-line rounded-lg shadow-sm focus:outline-none focus:ring-brand-purple/40 focus:border-line sm:text-sm bg-surface text-ink appearance-none"
               disabled={loadingCustomServices} // Disable dropdown while custom services are loading
             >
               <option value="">
@@ -300,7 +300,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
             </select>
             {loadingCustomServices && (
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <Loader2 className="animate-spin h-5 w-5 text-purple-400" />
+                <Loader2 className="animate-spin h-5 w-5 text-ink-muted" />
               </div>
             )}
           </div>
@@ -311,7 +311,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="service" className="block text-sm font-medium text-gray-300">
+                <label htmlFor="service" className="block text-sm font-medium text-ink-soft">
                   User Defined Unique ID (e.g., "SMM-IG-F-STD-001")
                 </label>
                 <input
@@ -320,12 +320,12 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
                   id="service"
                   value={formData.service}
                   readOnly={true} // This field is read-only for updates
-                  className={`mt-1 block w-full rounded-lg border border-gray-700 shadow-sm sm:text-sm bg-gray-700 text-gray-100 p-2 cursor-not-allowed`}
+                  className={`mt-1 block w-full rounded-lg border border-line shadow-sm sm:text-sm bg-surface-sunken text-ink p-2 cursor-not-allowed`}
                   placeholder="User Defined Unique ID (e.g., SMM-IG-F-STD-001)"
                 />
               </div>
               <div>
-                <label htmlFor="serviceId" className="block text-sm font-medium text-gray-300">
+                <label htmlFor="serviceId" className="block text-sm font-medium text-ink-soft">
                   Service ID (e.g., "1", "2")
                 </label>
                 <input
@@ -334,7 +334,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
                   id="serviceId"
                   value={formData.serviceId}
                   readOnly={true} // This field is read-only for updates
-                  className={`mt-1 block w-full rounded-lg border border-gray-700 shadow-sm sm:text-sm bg-gray-700 text-gray-100 p-2 cursor-not-allowed`}
+                  className={`mt-1 block w-full rounded-lg border border-line shadow-sm sm:text-sm bg-surface-sunken text-ink p-2 cursor-not-allowed`}
                   placeholder="Unique numeric ID (e.g., 1, 2, 3)"
                 />
               </div>
@@ -342,7 +342,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-300">
+                <label htmlFor="name" className="block text-sm font-medium text-ink-soft">
                   Display Name (Backend: name)
                 </label>
                 <input
@@ -352,12 +352,12 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
                   value={formData.name}
                   onChange={handleChange}
                   required={true}
-                  className={`mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 hover:border-purple-500 transition-colors`}
+                  className={`mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 hover:border-line transition-colors`}
                   placeholder="Name shown to customers (e.g., Followers, Likes)"
                 />
               </div>
               <div>
-                <label htmlFor="internalName" className="block text-sm font-medium text-gray-300">
+                <label htmlFor="internalName" className="block text-sm font-medium text-ink-soft">
                   Internal Name (Backend: internalName)
                 </label>
                 <input
@@ -367,7 +367,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
                   value={formData.internalName}
                   onChange={handleChange}
                   required={true}
-                  className={`mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 hover:border-purple-500 transition-colors`}
+                  className={`mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 hover:border-line transition-colors`}
                   placeholder="e.g., IG_FOLLOWERS_STANDARD"
                 />
               </div>
@@ -375,7 +375,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label htmlFor="rate" className="block text-sm font-medium text-gray-300">
+                <label htmlFor="rate" className="block text-sm font-medium text-ink-soft">
                   Rate per 1000(Backend: rate)
                 </label>
                 <input
@@ -386,12 +386,12 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
                   onChange={handleChange}
                   required
                   step="0.01"
-                  className="mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 hover:border-purple-500 transition-colors"
+                  className="mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 hover:border-line transition-colors"
                   placeholder="e.90"
                 />
               </div>
               <div>
-                <label htmlFor="min" className="block text-sm font-medium text-gray-300">
+                <label htmlFor="min" className="block text-sm font-medium text-ink-soft">
                   Min Value (Backend: min - String)
                 </label>
                 <input
@@ -401,12 +401,12 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
                   value={formData.min}
                   onChange={handleChange}
                   required
-                  className="mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 hover:border-purple-500 transition-colors"
+                  className="mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 hover:border-line transition-colors"
                   placeholder="e.g., 50"
                 />
               </div>
               <div>
-                <label htmlFor="max" className="block text-sm font-medium text-gray-300">
+                <label htmlFor="max" className="block text-sm font-medium text-ink-soft">
                   Max Value (Backend: max - String)
                 </label>
                 <input
@@ -416,7 +416,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
                   value={formData.max}
                   onChange={handleChange}
                   required
-                  className="mt-1 block w-full rounded-lg border border-gray-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm bg-gray-800 text-gray-100 p-2 hover:border-purple-500 transition-colors"
+                  className="mt-1 block w-full rounded-lg border border-line shadow-sm focus:border-line focus:ring-brand-purple/40 sm:text-sm bg-surface text-ink p-2 hover:border-line transition-colors"
                   placeholder="e.g., 10000"
                 />
               </div>
@@ -430,9 +430,9 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
                   type="checkbox"
                   checked={formData.refill}
                   onChange={handleChange}
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-700 rounded bg-gray-800"
+                  className="h-4 w-4 text-purple-600 focus:ring-brand-purple/40 border-line rounded bg-surface"
                 />
-                <label htmlFor="refill" className="ml-2 block text-sm text-gray-100">
+                <label htmlFor="refill" className="ml-2 block text-sm text-ink">
                   Refill
                 </label>
               </div>
@@ -443,9 +443,9 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
                   type="checkbox"
                   checked={formData.cancel}
                   onChange={handleChange}
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-700 rounded bg-gray-800"
+                  className="h-4 w-4 text-purple-600 focus:ring-brand-purple/40 border-line rounded bg-surface"
                 />
-                <label htmlFor="cancel" className="ml-2 block text-sm text-gray-100">
+                <label htmlFor="cancel" className="ml-2 block text-sm text-ink">
                   Cancel
                 </label>
               </div>
@@ -455,14 +455,14 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
               <button
                 type="button"
                 onClick={handleDuplicateService}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-brand-gradient text-white hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-purple/40 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
                 disabled={loading || !selectedServiceId}
               >
                 <Copy className="h-5 w-5 mr-2" /> Duplicate Service
               </button>
               <button
                 type="submit"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-brand-blue text-white hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
                 disabled={loading}
               >
                 {loading ? (
@@ -481,7 +481,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
                     toast.error("Service not found for deletion.", { theme: "dark" });
                   }
                 }}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-state-danger text-white hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
                 disabled={loading}
               >
                 <Trash2 className="h-5 w-5 mr-2" /> Delete Service
@@ -489,7 +489,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
               <button
                 type="button"
                 onClick={handleClearForm}
-                className="inline-flex items-center px-4 py-2 border border-purple-700 text-sm font-medium rounded-lg shadow-md text-gray-300 bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
+                className="inline-flex items-center px-4 py-2 border border-line text-sm font-medium rounded-lg shadow-md text-ink-soft bg-surface hover:bg-surface-sunken focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-purple/40 transition-all duration-300 w-full sm:w-auto justify-center transform hover:scale-105"
               >
                 Clear Form
               </button>
@@ -499,7 +499,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
 
         {/* Message displayed when no service is selected in update mode */}
         {selectedServiceId === '' && (
-          <p className="text-center text-gray-400 text-lg mt-4 animate-pulse">
+          <p className="text-center text-ink-muted text-lg mt-4 animate-pulse">
             Please select a service from the dropdown above to update or delete.
           </p>
         )}

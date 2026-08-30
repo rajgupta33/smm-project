@@ -5,7 +5,7 @@ import 'react-toastify/dist/ReactToastify.css';
 export default function ChangeUserPassword(){
     return (
     // Set a dark background and text color for the entire app
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-gray-100 font-inter antialiased">
+    <div className="min-h-screen bg-surface-sunken px-4 py-6 sm:px-6 sm:py-8">
       {/*
         Inline the react-toastify CSS directly into a <style> tag
         to ensure it's available in this environment.
