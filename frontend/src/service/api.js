@@ -438,14 +438,25 @@ export const serviceApi = {
       const response = await axios.post(`${API_BASE_URL}/user/placeOrder`, orderData, {
         withCredentials: true,
         headers: { 'Idempotency-Key': idempotencyKey },
+        // Without this, a request that never gets a response (a dropped
+        // connection, a cold-starting dependency) leaves the caller's UI
+        // waiting forever with nothing to show the customer. The
+        // Idempotency-Key means retrying — or just checking the Orders page
+        // — is always safe, so a client-side timeout can fail loudly here
+        // without risking a duplicate order.
+        timeout: 30000,
       });
       return { success: true, data: response.data };
     } catch (error) {
       console.error('API Error (placeOrder):', error);
+      const timedOut = error.code === 'ECONNABORTED';
       return {
         success: false,
-        message: error.response?.data?.error || error.response?.data?.msg || error.message,
+        message: timedOut
+          ? 'This is taking longer than expected. Check your Orders page before submitting again — the order may have already gone through.'
+          : (error.response?.data?.error || error.response?.data?.msg || error.message),
         data: error.response?.data,
+        timedOut,
       };
     }
   },

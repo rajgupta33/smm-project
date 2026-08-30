@@ -51,6 +51,34 @@ describe('OrderForm', () => {
     });
   });
 
+  it('ignores a second click while the first submission is still in flight', async () => {
+    // A request that never settles (a dropped connection, a slow cold start)
+    // must not let a second click spawn its own toast -- otherwise the first
+    // toast is orphaned forever even after the second attempt succeeds,
+    // which looks exactly like a stuck submission despite a successful order.
+    let resolveFirstCall;
+    serviceApi.placeOrder.mockImplementation(
+      () => new Promise((resolve) => { resolveFirstCall = resolve; })
+    );
+    render(<OrderForm />);
+    await screen.findByRole('option', { name: /Followers/ });
+    fireEvent.change(screen.getByLabelText('Link'), { target: { value: 'https://example.com/post' } });
+    fireEvent.change(screen.getByLabelText('Select Product/Service'), { target: { value: 'service-1' } });
+
+    const button = await screen.findByRole('button', { name: 'Submit Order' });
+    await waitFor(() => expect(button).not.toBeDisabled());
+    fireEvent.click(button);
+    await waitFor(() => expect(button).toBeDisabled());
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    resolveFirstCall({
+      success: true,
+      data: { orderId: 'ord_1', code: 'ORDER_QUEUED', queueDispatchPending: false },
+    });
+    await waitFor(() => expect(serviceApi.placeOrder).toHaveBeenCalledTimes(1));
+  });
+
   it('displays the server quote rather than a locally computed total', async () => {
     // The catalogue rate (125) would give a different number if multiplied in the
     // browser. Only the server total may be shown, or the price a customer approves

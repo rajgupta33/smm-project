@@ -24,6 +24,7 @@ function OrderForm() {
   const [quote, setQuote] = useState(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // Fetch services data on component mount
   useEffect(() => {
@@ -130,6 +131,13 @@ function OrderForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Without this, a second click while the first request is still in
+    // flight starts a second toast.loading() with its own toastId. If the
+    // first request never settles, its toast is orphaned forever even
+    // though the second one completes and closes normally -- which looks
+    // exactly like a stuck submission even after an order has succeeded.
+    if (submitting) return;
+
     // Basic client-side validation before sending
     if (!formData.serviceId) {
       toast.error("Please select a product/service.");
@@ -166,6 +174,7 @@ function OrderForm() {
     };
 
     let loadingToastId;
+    setSubmitting(true);
     try {
       // Show loading toast immediately
       loadingToastId = toast.loading("Placing your order...", {
@@ -306,6 +315,8 @@ function OrderForm() {
       } else {
         toast.error(`Failed to submit order: ${errorMessage}`);
       }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -497,10 +508,10 @@ function OrderForm() {
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={!quote || quoteLoading}
+          disabled={!quote || quoteLoading || submitting}
           className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed disabled:hover:scale-100 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 focus:ring-offset-gray-800"
         >
-          Submit Order
+          {submitting ? 'Placing order…' : 'Submit Order'}
         </button>
       </form>
     </div>
