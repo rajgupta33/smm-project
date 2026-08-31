@@ -307,10 +307,15 @@ class AdminController {
 
     async updateService(req, res) {
         try {
-            const { serviceId, min, max, rate, refill, markupOverrideBps } = req.payload;
+            const { serviceId, name, internalName, min, max, rate, refill, markupOverrideBps } = req.payload;
 
-            // Find service by ID and update
+            // Find service by ID and update. name/internalName were previously
+            // silently dropped here even though the admin edit form submits
+            // them and the UI shows a success toast either way -- the panel
+            // was reporting a save that never happened.
             const updateData = { min, max, rate, refill };
+            if (name !== undefined) updateData.name = name;
+            if (internalName !== undefined) updateData.internalName = internalName;
             if (markupOverrideBps !== undefined) {
                 if (markupOverrideBps !== null) {
                     validateMarkupBps(markupOverrideBps);

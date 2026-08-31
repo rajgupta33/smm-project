@@ -236,6 +236,16 @@ const CreateUserForm = () => {
           setRole('user');
           setSelectedServices([]);
         }, 500); // Small delay before clearing form/redirecting
+      } else {
+        // serviceApi.createUser resolves (does not throw) on a rejected
+        // request -- e.g. a duplicate user ID -- so without this branch the
+        // admin saw the button re-enable with no toast at all: no error, no
+        // success, nothing. That silence is exactly "nothing happens."
+        toast.error(response.message || 'Failed to create user. Please try again.', {
+          icon: <AlertCircle className="text-state-danger" />,
+          theme: "dark",
+          className: "bg-surface border-line"
+        });
       }
     } catch (error) {
       setLoading(false); // Clear loading on error
