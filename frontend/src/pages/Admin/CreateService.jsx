@@ -46,7 +46,7 @@ function ServiceManagerApp() {
   if (loadingServices && allServices.length === 0 && pageMode === 'dashboard') {
     return (
       <div className="flex items-center justify-center min-h-screen bg-surface-sunken text-ink">
-        <Loader2 className="animate-spin h-10 w-10 text-ink0" />
+        <Loader2 className="animate-spin h-10 w-10 text-ink" />
         <span className="ml-4 text-xl">Loading application data...</span>
       </div>
     );

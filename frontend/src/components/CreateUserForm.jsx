@@ -251,7 +251,7 @@ const CreateUserForm = () => {
   return (
     // The form itself with all its styling
     <form onSubmit={handleSubmit} className="bg-surface shadow-card rounded-2xl max-w-md w-full p-6 space-y-6 md:p-8 transition-all duration-300 hover:shadow-lift border border-line">
-      <h2 className="text-2xl font-bold text-center mb-6 text-ink0">Create User Account</h2>
+      <h2 className="text-2xl font-bold text-center mb-6 text-ink">Create User Account</h2>
 
       {/* Error Message for fetching services */}
       {fetchError && (
@@ -339,7 +339,7 @@ const CreateUserForm = () => {
           className="space-y-2 bg-surface rounded-lg p-4 overflow-auto max-h-[150px] border border-line"
         >
           {servicesLoading ? (
-            <div className="py-4 text-center text-ink0 animate-pulse">
+            <div className="py-4 text-center text-ink animate-pulse">
               Loading available services...
             </div>
           ) : fetchError ? (
@@ -358,7 +358,7 @@ const CreateUserForm = () => {
                     value={service.serviceId}
                     checked={selectedServices.includes(service.serviceId)}
                     onChange={() => handleServiceChange(service.serviceId)}
-                    className="form-checkbox text-ink0 border-line rounded focus:ring-brand-purple/40"
+                    className="form-checkbox text-ink border-line rounded focus:ring-brand-purple/40"
                   />
                   <span className="text-ink-soft">
                     {service.name} (ID: {service.serviceId})
