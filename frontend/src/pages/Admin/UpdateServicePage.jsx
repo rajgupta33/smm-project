@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import DeleteConfirmationModal from "../../components/DeleteConfirmationModel"; // Assuming this path is correct
 import { serviceApi } from "../../service/api";
 import { X, Copy, Edit, Trash2 } from "lucide-react";
+import ServiceMarkupField from "../../components/ServiceMarkupField";
 
 const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customServices, setCustomServices }) => {
   const [loading, setLoading] = useState(false);
@@ -20,6 +21,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
     refill: false,
     cancel: false, // Added cancel field for consistency
   });
+  const [markupOverrideBps, setMarkupOverrideBps] = useState(null);
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState(null);
@@ -30,6 +32,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
       serviceId: '', service: '', name: '', internalName: '',
       rate: '', min: '', max: '', refill: false, cancel: false,
     });
+    setMarkupOverrideBps(null);
     setSelectedServiceId('');
 
     // Function to load custom services from the API
@@ -64,6 +67,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
         serviceId: '', service: '', name: '', internalName: '',
         rate: '', min: '', max: '', refill: false, cancel: false,
       });
+      setMarkupOverrideBps(null);
     } else {
       // Find the selected service from customServices or fallback to allServices
       let serviceToEdit = customServices.find(service => service.serviceId === serviceId);
@@ -85,6 +89,9 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
           refill: serviceToEdit.refill || false,
           cancel: serviceToEdit.cancel || false,
         });
+        setMarkupOverrideBps(
+          serviceToEdit.markupOverrideBps === undefined ? null : serviceToEdit.markupOverrideBps
+        );
       }
     }
   }, [customServices, allServices]); // Dependencies: customServices and allServices for finding the service
@@ -169,6 +176,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
         max: submittedServiceData.max,
         refill: submittedServiceData.refill,
         cancel: submittedServiceData.cancel,
+        markupOverrideBps,
       };
 
       const result = await serviceApi.updateService(updatePayload); // Call the update API
@@ -195,7 +203,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
     } finally {
       setLoading(false); // Stop loading indicator
     }
-  }, [formData, selectedServiceId, allServices, setAllServices, setCustomServices, setPageMode]); // Dependencies for handleSubmit
+  }, [formData, markupOverrideBps, selectedServiceId, allServices, setAllServices, setCustomServices, setPageMode]); // Dependencies for handleSubmit
 
   // Handler to clear the form fields and reset selected service
   const handleClearForm = useCallback(() => {
@@ -203,6 +211,7 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
       serviceId: '', service: '', name: '', internalName: '',
       rate: '', min: '', max: '', refill: false, cancel: false,
     });
+    setMarkupOverrideBps(null);
     setSelectedServiceId('');
   }, []);
 
@@ -421,6 +430,12 @@ const UpdateServicePage = ({ setPageMode, allServices, setAllServices, customSer
                 />
               </div>
             </div>
+
+            <ServiceMarkupField
+              value={markupOverrideBps}
+              onChange={setMarkupOverrideBps}
+              providerRate={formData.rate}
+            />
 
             <div className="flex items-center space-x-6 mt-4 flex-wrap">
               <div className="flex items-center mb-2 sm:mb-0">

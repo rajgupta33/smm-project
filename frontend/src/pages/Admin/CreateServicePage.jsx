@@ -2,6 +2,7 @@ import React, { useEffect, useCallback, useState, useMemo } from "react";
 import { toast } from "react-toastify";
 import { Loader2, AlertCircle, X, Copy, Plus, Search } from "lucide-react"; // Added Search icon
 import { serviceApi } from "../../service/api";
+import ServiceMarkupField from "../../components/ServiceMarkupField";
 
 const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
   const [loading, setLoading] = useState(false);
@@ -16,6 +17,7 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
     refill: false,
     cancel: false,
   });
+  const [markupOverrideBps, setMarkupOverrideBps] = useState(null);
   const [selectedServiceIdForDuplication, setSelectedServiceIdForDuplication] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('All');
@@ -26,6 +28,7 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
       serviceId: '', service: '', name: '', internalName: '',
       rate: '', min: '', max: '', refill: false, cancel: false,
     });
+    setMarkupOverrideBps(null);
     setSelectedServiceIdForDuplication('');
     setSearchTerm('');
     setSelectedCategoryFilter('All');
@@ -61,6 +64,9 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
         refill: serviceToDuplicate.refill || false,
         cancel: serviceToDuplicate.cancel || false,
       }));
+      setMarkupOverrideBps(
+        serviceToDuplicate.markupOverrideBps === undefined ? null : serviceToDuplicate.markupOverrideBps
+      );
       setSelectedServiceIdForDuplication(''); // Clear selection in dropdown after duplication
       toast.info("Ready to duplicate service. Please enter new Service ID and User Defined Unique ID.", { theme: "dark" });
     }
@@ -82,6 +88,7 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
       max: formData.max,
       refill: formData.refill,
       cancel: formData.cancel,
+      markupOverrideBps,
     };
 
     // Basic validation for required fields
@@ -115,7 +122,7 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
     } finally {
       setLoading(false);
     }
-  }, [formData, allServices, setAllServices, setPageMode]);
+  }, [formData, markupOverrideBps, allServices, setAllServices, setPageMode]);
 
   // Handler to clear the form fields and reset filters
   const handleClearForm = useCallback(() => {
@@ -123,6 +130,7 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
       serviceId: '', service: '', name: '', internalName: '',
       rate: '', min: '', max: '', refill: false, cancel: false,
     });
+    setMarkupOverrideBps(null);
     setSelectedServiceIdForDuplication('');
     setSearchTerm('');
     setSelectedCategoryFilter('All');
@@ -362,6 +370,12 @@ const CreateServicePage = ({ setPageMode, allServices, setAllServices }) => {
               />
             </div>
           </div>
+
+          <ServiceMarkupField
+            value={markupOverrideBps}
+            onChange={setMarkupOverrideBps}
+            providerRate={formData.rate}
+          />
 
           {/* Checkboxes for Refill and Cancel */}
           <div className="flex items-center space-x-6 mt-4 flex-wrap">
