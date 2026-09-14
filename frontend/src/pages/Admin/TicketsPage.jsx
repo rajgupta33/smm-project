@@ -41,9 +41,9 @@ export default function TicketsPage() {
 
   return <><ResponsiveNavbar /><main className="min-h-screen bg-surface-sunken p-5">
     <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[400px_1fr]">
-      <section><div className="flex items-center justify-between gap-3"><h1 className="text-3xl font-bold text-ink">Support tickets</h1>
+      <section><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><h1 className="text-3xl font-bold text-ink">Support tickets</h1>
         <select aria-label="Filter tickets" value={status} onChange={(event) => setStatus(event.target.value)}
-          className="rounded border border-line bg-surface p-2">{statuses.map((value) => <option key={value} value={value}>{value || 'ALL'}</option>)}</select></div>
+          className="w-full rounded border border-line bg-surface p-2 sm:w-auto">{statuses.map((value) => <option key={value} value={value}>{value || 'ALL'}</option>)}</select></div>
         <div className="mt-5 space-y-2">{tickets.map((ticket) => <button key={ticket.id} onClick={() => open(ticket.publicTicketId)}
           className="block w-full rounded-lg border border-line bg-surface p-3 text-left">
           <strong>{ticket.publicTicketId}</strong><span className="float-right text-xs">{ticket.priority}</span>

@@ -206,7 +206,7 @@ export default function ProviderRoutingPage() {
 
         <section className="bg-surface border border-line rounded-xl p-5">
           <h2 className="text-xl font-semibold mb-4">Providers</h2>
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {providers.map((provider) => (
               <article key={provider._id} className="rounded border border-line bg-surface p-4">
                 <div className="flex justify-between gap-4">

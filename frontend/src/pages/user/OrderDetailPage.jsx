@@ -47,7 +47,7 @@ export default function OrderDetailPage() {
                 ) : (
                     <>
                         <div className="bg-surface rounded-lg p-6 mb-8">
-                            <h1 className="text-2xl font-bold mb-2">Order {data.order.localOrderId}</h1>
+                            <h1 className="text-2xl font-bold mb-2 break-words">Order {data.order.localOrderId}</h1>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                                 <div>
                                     <p className="text-ink-muted text-sm">Status</p>

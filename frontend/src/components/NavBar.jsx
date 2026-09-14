@@ -101,9 +101,9 @@ export default function ResponsiveNavbar() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:h-[72px] sm:px-6 lg:px-8">
           <Logo size="sm" to={role ? '/home' : '/login'} className="sm:h-10" />
 
-          <ul className="hidden items-center gap-1 lg:flex">
+          <ul className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto lg:flex">
             {links.map((link) => (
-              <li key={link.href + link.name}>
+              <li key={link.href + link.name} className="shrink-0">
                 <Link
                   to={link.href}
                   aria-current={isActive(link.href) ? 'page' : undefined}
