@@ -17,6 +17,7 @@ function baseOrder(overrides = {}) {
         _id: 'order-1',
         user: 'user-1',
         lifecycleStatus: 'SUBMITTED',
+        fundingStatus: 'DEBITED',
         providerOrderId: 'provider-order-1',
         providerId: null,
         lastStatus: 'Pending',
@@ -24,8 +25,9 @@ function baseOrder(overrides = {}) {
     };
 }
 
-function dependenciesFor({ order, providerResponse, findOneAndUpdateResult, now } = {}) {
+function dependenciesFor({ order, providerResponse, findOneAndUpdateResult, now, refundWallet } = {}) {
     let updateArgs = null;
+    const refundCalls = [];
     return {
         deps: {
             now: () => now || new Date('2026-08-29T12:00:00Z'),
@@ -46,8 +48,13 @@ function dependenciesFor({ order, providerResponse, findOneAndUpdateResult, now 
                 getOrderStatus: async () => providerResponse,
             }),
             appendOrderEvent: async () => {},
+            refundWallet: refundWallet || (async (input) => {
+                refundCalls.push(input);
+                return { ledger: input, created: true };
+            }),
         },
         getUpdateArgs: () => updateArgs,
+        getRefundCalls: () => refundCalls,
     };
 }
 
@@ -100,8 +107,8 @@ test('pollOrderStatus marks the order completed and stops scheduling further che
     assert.equal(query.lifecycleStatus, 'SUBMITTED');
 });
 
-test('pollOrderStatus stops scheduling on a terminal non-completed status without changing lifecycle', async () => {
-    const { deps, getUpdateArgs } = dependenciesFor({
+test('pollOrderStatus stops scheduling on a terminal non-completed status without changing lifecycle when there is nothing to refund', async () => {
+    const { deps, getUpdateArgs, getRefundCalls } = dependenciesFor({
         order: baseOrder(),
         providerResponse: { status: 'Partial' },
     });
@@ -109,6 +116,58 @@ test('pollOrderStatus stops scheduling on a terminal non-completed status withou
     const { update } = getUpdateArgs();
     assert.equal(update.$set.nextOrderStatusCheckAt, null);
     assert.equal(update.$set.lifecycleStatus, undefined);
+    assert.equal(getRefundCalls().length, 0);
+});
+
+test('pollOrderStatus refunds the customer for undelivered quantity on a partial order', async () => {
+    const order = baseOrder({
+        localOrderId: 'local-1',
+        pricingSnapshot: { quantity: 1000, sellingTotalMinor: 10000 },
+    });
+    const { deps, getUpdateArgs, getRefundCalls } = dependenciesFor({
+        order,
+        providerResponse: { status: 'Partial', remains: 250 },
+    });
+    await pollOrderStatus('order-1', deps);
+    const calls = getRefundCalls();
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].amountMinor, 2500);
+    assert.equal(calls[0].sourceId, 'local-1');
+    assert.equal(calls[0].idempotencyKey, 'order-status-refund:local-1');
+    const { update } = getUpdateArgs();
+    assert.equal(update.$set.fundingStatus, 'PARTIALLY_REFUNDED');
+    assert.equal(update.$set.lifecycleStatus, 'COMPLETED');
+});
+
+test('pollOrderStatus fully refunds and cancels a canceled order with no delivery', async () => {
+    const order = baseOrder({
+        localOrderId: 'local-2',
+        pricingSnapshot: { quantity: 1000, sellingTotalMinor: 10000 },
+    });
+    const { deps, getUpdateArgs, getRefundCalls } = dependenciesFor({
+        order,
+        providerResponse: { status: 'Canceled', remains: 1000 },
+    });
+    await pollOrderStatus('order-1', deps);
+    const calls = getRefundCalls();
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].amountMinor, 10000);
+    const { update } = getUpdateArgs();
+    assert.equal(update.$set.fundingStatus, 'REFUNDED');
+    assert.equal(update.$set.lifecycleStatus, 'CANCELLED');
+});
+
+test('pollOrderStatus does not refund an order that was already refunded', async () => {
+    const order = baseOrder({
+        fundingStatus: 'REFUNDED',
+        pricingSnapshot: { quantity: 1000, sellingTotalMinor: 10000 },
+    });
+    const { deps, getRefundCalls } = dependenciesFor({
+        order,
+        providerResponse: { status: 'Partial', remains: 250 },
+    });
+    await pollOrderStatus('order-1', deps);
+    assert.equal(getRefundCalls().length, 0);
 });
 
 test('scanOrderStatuses polls every due order and schedules a retry after a failed poll', async () => {

@@ -1,7 +1,12 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/Authcontext';
 
-const ProtectedRoute = ({ requiredRole }) => {
+/**
+ * Route guard. This is navigation convenience only, never a security boundary:
+ * every privileged API re-checks the role and, for reseller routes, the
+ * reseller profile against the database on each request.
+ */
+const ProtectedRoute = ({ requiredRole, requireReseller = false }) => {
   const { isAuthenticated, user, isLoading } = useAuth();
 
   // Show loading spinner while checking authentication
@@ -20,6 +25,10 @@ const ProtectedRoute = ({ requiredRole }) => {
 
   // Redirect to unauthorized if role doesn't match
   if (requiredRole && user.role !== requiredRole) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  if (requireReseller && !user.isReseller) {
     return <Navigate to="/unauthorized" replace />;
   }
 

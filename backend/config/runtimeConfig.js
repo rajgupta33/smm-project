@@ -32,6 +32,14 @@ function positiveIntegerEnv(env, name, fallback) {
     return value;
 }
 
+function boundedIntegerEnv(env, name, fallback, min, max) {
+    const value = Number(env[name] ?? fallback);
+    if (!Number.isSafeInteger(value) || value < min || value > max) {
+        throw new Error(`${name} must be an integer between ${min} and ${max}`);
+    }
+    return value;
+}
+
 function parseBoolean(value, fallback) {
     if (value === undefined) return fallback;
     if (value === 'true') return true;
@@ -122,6 +130,31 @@ function getRuntimeConfig(env = process.env) {
         },
         orderStatus: {
             pollMinutes: positiveIntegerEnv(env, 'ORDER_STATUS_POLL_MINUTES', 10),
+        },
+        providerMonitor: {
+            balanceCheckMinutes: positiveIntegerEnv(env, 'PROVIDER_BALANCE_CHECK_MINUTES', 30),
+            serviceAvailabilityCheckMinutes: positiveIntegerEnv(env, 'SERVICE_AVAILABILITY_CHECK_MINUTES', 60),
+        },
+        reseller: {
+            // Defaults for a newly created reseller. Each profile stores its own
+            // rate, so changing these never rewrites an existing reseller.
+            defaultCommissionBps: boundedIntegerEnv(env, 'RESELLER_DEFAULT_COMMISSION_BPS', 2500, 0, 10000),
+            defaultHoldDays: boundedIntegerEnv(env, 'RESELLER_COMMISSION_HOLD_DAYS', 7, 0, 365),
+            defaultDailyShareCap: boundedIntegerEnv(env, 'RESELLER_DAILY_SHARE_CAP', 100, 0, 5000),
+            payoutScanMinutes: positiveIntegerEnv(env, 'RESELLER_PAYOUT_SCAN_MINUTES', 60),
+            promoSyncMinutes: positiveIntegerEnv(env, 'RESELLER_PROMO_SYNC_MINUTES', 30),
+            /**
+             * Google Apps Script web app that reads and stamps the promo sheets.
+             * Held server-side only: a reseller never sees the URL, the key or
+             * the spreadsheet. Marketing is simply unavailable when unset.
+             */
+            promoSheet: {
+                appsScriptUrl: env.PROMO_SHEET_SCRIPT_URL?.trim()
+                    ? parseUrl(env.PROMO_SHEET_SCRIPT_URL.trim(), 'PROMO_SHEET_SCRIPT_URL')
+                    : null,
+                secretKey: env.PROMO_SHEET_SECRET_KEY?.trim() || null,
+                timeoutMs: positiveIntegerEnv(env, 'PROMO_SHEET_TIMEOUT_MS', 20000),
+            },
         },
         allowedOrigins,
         trustProxy: parseTrustProxy(env.TRUST_PROXY, nodeEnv),

@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const OrderEvent = require('../models/OrderEvent');
 
 /**
@@ -19,6 +20,10 @@ async function appendOrderEvent({
     internalOnly = false,
     session = null
 }) {
+    if (!mongoose.isValidObjectId(orderId) || !mongoose.isValidObjectId(userId)) {
+        return null;
+    }
+
     const event = new OrderEvent({
         orderId,
         userId,

@@ -37,6 +37,10 @@ const CreateUserForm = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState('user');
+  // Optional referral attribution: every order this customer places then earns
+  // commission for that reseller. Set once here; changing it later needs the
+  // audited reassign action on the Resellers page.
+  const [referralCode, setReferralCode] = useState('');
   const [services, setServices] = useState([]); // List of all available services
   const [selectedServices, setSelectedServices] = useState([]); // List of serviceIds of selected services
   const [loading, setLoading] = useState(false); // Loading state for form submission
@@ -194,7 +198,8 @@ const CreateUserForm = () => {
       userId,
       password,
       role,
-      services: selectedServices
+      services: selectedServices,
+      ...(role === 'user' && referralCode.trim() ? { referralCode: referralCode.trim() } : {})
     });
 
       setLoading(false); // Clear loading immediately after response
@@ -234,6 +239,7 @@ const CreateUserForm = () => {
           setPassword('');
           setConfirmPassword('');
           setRole('user');
+          setReferralCode('');
           setSelectedServices([]);
         }, 500); // Small delay before clearing form/redirecting
       } else {
@@ -338,6 +344,24 @@ const CreateUserForm = () => {
           <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
         </div>
       </div>
+
+      {/* Referral attribution (customer accounts only) */}
+      {role === 'user' && (
+        <div className="relative">
+          <label htmlFor="referralCode" className="absolute left-3 top-3 text-sm text-ink-muted pointer-events-none transform -translate-y-2 scale-90 origin-left">
+            Reseller referral code (optional)
+          </label>
+          <input
+            id="referralCode"
+            type="text"
+            value={referralCode}
+            onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+            className="w-full p-4 rounded-lg bg-surface border border-line focus:border-line focus:bg-surface text-ink placeholder:text-transparent font-mono uppercase"
+            placeholder="ABC1234"
+            maxLength={24}
+          />
+        </div>
+      )}
 
       {/* Services Selection */}
       <div>

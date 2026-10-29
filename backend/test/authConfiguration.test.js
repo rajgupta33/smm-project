@@ -80,12 +80,21 @@ test('runtime configuration parses allowed origins and cookie options', () => {
         cooldownHours: 24,
         statusPollMinutes: 5,
     });
+    assert.deepEqual(config.providerMonitor, { balanceCheckMinutes: 30, serviceAvailabilityCheckMinutes: 60 });
 });
 
 test('runtime configuration rejects invalid refill policy intervals', () => {
     assert.throws(
         () => getRuntimeConfig(validEnvironment({ REFILL_COOLDOWN_HOURS: '0' })),
         /REFILL_COOLDOWN_HOURS must be a positive integer/
+    );
+    assert.throws(
+        () => getRuntimeConfig(validEnvironment({ PROVIDER_BALANCE_CHECK_MINUTES: 'often' })),
+        /PROVIDER_BALANCE_CHECK_MINUTES must be a positive integer/
+    );
+    assert.throws(
+        () => getRuntimeConfig(validEnvironment({ SERVICE_AVAILABILITY_CHECK_MINUTES: 'often' })),
+        /SERVICE_AVAILABILITY_CHECK_MINUTES must be a positive integer/
     );
 });
 

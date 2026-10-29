@@ -8,6 +8,8 @@ const PAYMENT_RECONCILE_QUEUE = 'payment-reconcile';
 const REFILL_QUEUE = 'provider-refill';
 const DRIP_FEED_QUEUE = 'drip-feed-submit';
 const ORDER_STATUS_QUEUE = 'order-status-scan';
+const PROVIDER_MONITOR_QUEUE = 'provider-monitor';
+const RESELLER_QUEUE = 'reseller-jobs';
 const WORKER_HEARTBEAT_TTL_SECONDS = 45;
 
 let producerConnection;
@@ -43,6 +45,8 @@ function getQueues() {
             [REFILL_QUEUE, new Queue(REFILL_QUEUE, options)],
             [DRIP_FEED_QUEUE, new Queue(DRIP_FEED_QUEUE, options)],
             [ORDER_STATUS_QUEUE, new Queue(ORDER_STATUS_QUEUE, options)],
+            [PROVIDER_MONITOR_QUEUE, new Queue(PROVIDER_MONITOR_QUEUE, options)],
+            [RESELLER_QUEUE, new Queue(RESELLER_QUEUE, options)],
         ]);
     }
     return queues;
@@ -144,8 +148,10 @@ module.exports = {
     ORDER_QUEUE,
     ORDER_STATUS_QUEUE,
     PAYMENT_RECONCILE_QUEUE,
+    PROVIDER_MONITOR_QUEUE,
     PROVIDER_SYNC_QUEUE,
     REFILL_QUEUE,
+    RESELLER_QUEUE,
     checkRedisConnection,
     closeProducerQueues,
     createWorkerConnection,

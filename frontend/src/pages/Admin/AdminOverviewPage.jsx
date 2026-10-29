@@ -1,8 +1,21 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import ResponsiveNavbar from "../../components/NavBar";
 import { toast } from "react-toastify";
-import { Users, CreditCard, ShoppingCart, DollarSign, AlertTriangle, ShieldAlert } from "lucide-react";
+import { Users, CreditCard, ShoppingCart, DollarSign, AlertTriangle, ShieldAlert, Bell } from "lucide-react";
 import { analyticsApi } from "../../service/api";
+
+function alertBannerText({ critical = 0, warning = 0 }) {
+    const parts = [];
+    if (critical) parts.push(`${critical} critical alert${critical === 1 ? '' : 's'}`);
+    if (warning) parts.push(`${warning} warning${warning === 1 ? '' : 's'}`);
+    return `${parts.join(' and ')} need${critical + warning === 1 ? 's' : ''} attention`;
+}
+
+const BALANCE_LEVEL_TEXT = {
+    CRITICAL: 'font-semibold text-state-danger',
+    WARNING: 'font-semibold text-state-warning',
+};
 
 export default function AdminOverviewPage() {
     const [stats, setStats] = useState(null);
@@ -36,6 +49,19 @@ export default function AdminOverviewPage() {
                     <div className="text-center text-ink-muted py-20">Loading metrics...</div>
                 ) : (
                     <>
+                        {(stats.alerts?.critical > 0 || stats.alerts?.warning > 0) && (
+                            <Link
+                                to="/adminAlerts"
+                                className={`mb-8 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 font-semibold ${stats.alerts.critical > 0
+                                    ? 'border-state-danger/30 bg-state-danger-bg text-state-danger'
+                                    : 'border-state-warning/30 bg-state-warning-bg text-state-warning'}`}
+                            >
+                                <Bell size={20} className="shrink-0" aria-hidden="true" />
+                                <span>{alertBannerText(stats.alerts)}</span>
+                                <span className="ml-auto text-sm underline">View alerts</span>
+                            </Link>
+                        )}
+
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
                             
                             <div className="bg-surface rounded-lg p-6 flex items-center shadow-lg border border-line">
@@ -109,6 +135,7 @@ export default function AdminOverviewPage() {
                                         <tr className="text-ink-muted border-b border-line">
                                             <th className="pb-3 pr-4">Provider Name</th>
                                             <th className="pb-3 pr-4">Status</th>
+                                            <th className="pb-3 pr-4">Balance</th>
                                             <th className="pb-3 pr-4">Last Sync</th>
                                         </tr>
                                     </thead>
@@ -120,6 +147,11 @@ export default function AdminOverviewPage() {
                                                     <span className={`px-2 py-1 rounded text-xs font-bold ${p.enabled && p.healthStatus !== 'UNAVAILABLE' ? 'bg-green-600' : 'bg-red-600'}`}>
                                                         {p.enabled ? p.healthStatus : 'DISABLED'}
                                                     </span>
+                                                </td>
+                                                <td className="py-4 pr-4 text-sm tnum">
+                                                    {p.balanceSnapshot?.checkedAt
+                                                        ? <span className={BALANCE_LEVEL_TEXT[p.balanceSnapshot.level] || ''}>{formatMoney(p.balanceSnapshot.balanceMinor)}</span>
+                                                        : <span className="text-ink-muted">Not checked</span>}
                                                 </td>
                                                 <td className="py-4 pr-4 text-sm text-ink-muted">
                                                     {new Date(p.updatedAt).toLocaleString()}

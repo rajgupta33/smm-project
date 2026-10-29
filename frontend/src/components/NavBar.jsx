@@ -1,16 +1,22 @@
 import { useEffect, useState } from 'react';
 import {
   Home, User, Mail, Menu, X, ListOrderedIcon, LogOutIcon, IndianRupeeIcon, Settings,
-  RotateCcw, MessageSquare, Network, ShieldAlert, LayoutDashboard, ClipboardList, Wallet,
+  RotateCcw, MessageSquare, Network, ShieldAlert, LayoutDashboard, ClipboardList, Wallet, Bell,
+  Handshake, MessageCircle,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/Authcontext';
+import { alertApi } from '../service/api';
 import Logo from './Logo';
 
 const NAV_ICONS = {
   Home, User, Mail, Menu, X, ListOrderedIcon, LogOutIcon, IndianRupeeIcon, Settings,
-  RotateCcw, MessageSquare, Network, ShieldAlert, LayoutDashboard, ClipboardList,
+  RotateCcw, MessageSquare, Network, ShieldAlert, LayoutDashboard, ClipboardList, Bell,
+  Handshake, MessageCircle,
 };
+
+const ALERTS_HREF = '/adminAlerts';
+const ALERT_REFRESH_MS = 60000;
 
 const USER_LINKS = [
   { name: 'Place order', href: '/home', icon: 'Home' },
@@ -20,8 +26,16 @@ const USER_LINKS = [
   { name: 'Profile', href: '/profile', icon: 'User' },
 ];
 
+// A reseller keeps every customer link and gains two of their own, because a
+// reseller still orders, tops up and raises tickets like any other customer.
+const RESELLER_LINKS = [
+  { name: 'Earnings', href: '/reseller', icon: 'Handshake' },
+  { name: 'Marketing', href: '/reseller/marketing', icon: 'MessageCircle' },
+];
+
 const ADMIN_LINKS = [
   { name: 'Overview', href: '/adminOverview', icon: 'LayoutDashboard' },
+  { name: 'Alerts', href: ALERTS_HREF, icon: 'Bell' },
   { name: 'Create user', href: '/home', icon: 'Home' },
   { name: 'Users', href: '/userDashboard', icon: 'User' },
   { name: 'Services', href: '/services', icon: 'Settings' },
@@ -31,6 +45,8 @@ const ADMIN_LINKS = [
   { name: 'Refills', href: '/adminRefills', icon: 'RotateCcw' },
   { name: 'Tickets', href: '/adminTickets', icon: 'MessageSquare' },
   { name: 'Manual tasks', href: '/adminManualTasks', icon: 'ClipboardList' },
+  { name: 'Resellers', href: '/adminResellers', icon: 'Handshake' },
+  { name: 'Campaigns', href: '/adminPromoCampaigns', icon: 'MessageCircle' },
   { name: 'Providers', href: '/adminProviders', icon: 'Network' },
   { name: 'Reconciliation', href: '/adminReconciliation', icon: 'ShieldAlert' },
   { name: 'Passwords', href: '/changeUserPassword', icon: 'ShieldAlert' },
@@ -38,8 +54,10 @@ const ADMIN_LINKS = [
 
 const PUBLIC_LINKS = [{ name: 'Home', href: '/home', icon: 'Home' }];
 
-function linksForRole(role) {
-  if (role === 'user') return USER_LINKS;
+function linksForRole(role, isReseller) {
+  if (role === 'user') {
+    return isReseller ? [...USER_LINKS.slice(0, 2), ...RESELLER_LINKS, ...USER_LINKS.slice(2)] : USER_LINKS;
+  }
   if (role === 'admin') return ADMIN_LINKS;
   return PUBLIC_LINKS;
 }
@@ -52,11 +70,38 @@ export default function ResponsiveNavbar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const links = linksForRole(role);
+  const links = linksForRole(role, auth.user?.isReseller);
+  const [alertSummary, setAlertSummary] = useState(null);
 
   // Route changes should always dismiss the drawer, including back/forward
   // navigation that does not go through an onClick handler.
   useEffect(() => { setIsOpen(false); }, [location.pathname]);
+
+  // Admins see unacknowledged alerts on every page, refreshed on navigation and every minute.
+  useEffect(() => {
+    if (role !== 'admin') return undefined;
+    let cancelled = false;
+    const refresh = () => alertApi.summary()
+      .then((summary) => { if (!cancelled) setAlertSummary(summary); })
+      .catch(() => {});
+    refresh();
+    const timer = setInterval(refresh, ALERT_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [role, location.pathname]);
+
+  const alertCount = role === 'admin' ? alertSummary?.open || 0 : 0;
+  const alertBadge = (href) => (href === ALERTS_HREF && alertCount > 0 ? (
+    <span
+      className={`tnum rounded-full px-1.5 py-0.5 text-[11px] font-bold leading-none text-white
+        ${alertSummary?.critical > 0 ? 'bg-state-danger' : 'bg-state-warning'}`}
+    >
+      {alertCount}
+      <span className="sr-only"> need attention</span>
+    </span>
+  ) : null);
 
   // A fixed drawer over a scrollable body lets the page behind it scroll on
   // iOS, which reads as the menu drifting. Lock the body while it is open.
@@ -114,6 +159,7 @@ export default function ResponsiveNavbar() {
                 >
                   {getIcon(link.icon, 'h-4 w-4')}
                   <span>{link.name}</span>
+                  {alertBadge(link.href)}
                 </Link>
               </li>
             ))}
@@ -209,6 +255,7 @@ export default function ResponsiveNavbar() {
                 >
                   {getIcon(link.icon)}
                   <span>{link.name}</span>
+                  {alertBadge(link.href)}
                 </Link>
               </li>
             ))}

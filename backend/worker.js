@@ -6,11 +6,16 @@ const { getRuntimeConfig } = require('./config/runtimeConfig');
 const { connectToDatabase, disconnectFromDatabase } = require('./utils/serverlessDb');
 const {
     DRIP_FEED_QUEUE, ORDER_QUEUE, ORDER_STATUS_QUEUE, PAYMENT_RECONCILE_QUEUE,
-    PROVIDER_SYNC_QUEUE, REFILL_QUEUE, createWorkerConnection, closeProducerQueues, getQueue,
-    writeWorkerHeartbeat,
+    PROVIDER_MONITOR_QUEUE, PROVIDER_SYNC_QUEUE, REFILL_QUEUE, RESELLER_QUEUE, createWorkerConnection,
+    closeProducerQueues, getQueue, writeWorkerHeartbeat,
 } = require('./queues/queueRegistry');
 const { dispatchPendingJobs } = require('./services/jobDispatchService');
 const { scanOrderStatuses } = require('./services/orderStatusService');
+const { scanProviderBalances } = require('./services/providerBalanceService');
+const { scanServiceAvailability } = require('./services/serviceAvailabilityService');
+const { scanCommissions } = require('./services/commissionService');
+const { syncActiveCampaigns } = require('./services/promoCampaignService');
+const { sweepLeads } = require('./services/promoLeadService');
 const { processDripFeedRunJob } = require('./workers/dripFeedWorker');
 const {
     processOrderSubmissionJob, processPaymentReconciliationJob,
@@ -62,6 +67,20 @@ async function startWorker() {
             if (job.name !== 'scan-order-status') throw new Error(`Unsupported order-status job: ${job.name}`);
             return scanOrderStatuses();
         }, { ...workerOptions, concurrency: 1 }),
+        new Worker(PROVIDER_MONITOR_QUEUE, async (job) => {
+            if (job.name === 'check-provider-balances') return scanProviderBalances();
+            if (job.name === 'check-service-availability') return scanServiceAvailability();
+            throw new Error(`Unsupported provider monitor job: ${job.name}`);
+        }, { ...workerOptions, concurrency: 1 }),
+        new Worker(RESELLER_QUEUE, async (job) => {
+            if (job.name === 'scan-commissions') return scanCommissions({});
+            if (job.name === 'sync-promo-campaigns') {
+                const synced = await syncActiveCampaigns({});
+                const swept = await sweepLeads({});
+                return { ...synced, ...swept };
+            }
+            throw new Error(`Unsupported reseller job: ${job.name}`);
+        }, { ...workerOptions, concurrency: 1 }),
     ];
 
     await getQueue(PAYMENT_RECONCILE_QUEUE).upsertJobScheduler(
@@ -97,6 +116,63 @@ async function startWorker() {
             name: 'scan-order-status', data: {},
             opts: {
                 attempts: 3, backoff: { type: 'exponential', delay: 5000 },
+                removeOnComplete: { age: 7 * 24 * 60 * 60, count: 10000 },
+                removeOnFail: { age: 30 * 24 * 60 * 60, count: 10000 },
+            },
+        }
+    );
+
+    // Balance reads have no provider side effects; a failed scan simply waits for the next interval.
+    await getQueue(PROVIDER_MONITOR_QUEUE).upsertJobScheduler(
+        'provider-balance-monitoring',
+        { every: config.providerMonitor.balanceCheckMinutes * 60 * 1000 },
+        {
+            name: 'check-provider-balances', data: {},
+            opts: {
+                attempts: 1,
+                removeOnComplete: { age: 7 * 24 * 60 * 60, count: 10000 },
+                removeOnFail: { age: 30 * 24 * 60 * 60, count: 10000 },
+            },
+        }
+    );
+    // Report-only fetch, same as a manual provider sync; a failed scan waits for the next interval.
+    await getQueue(PROVIDER_MONITOR_QUEUE).upsertJobScheduler(
+        'service-availability-monitoring',
+        { every: config.providerMonitor.serviceAvailabilityCheckMinutes * 60 * 1000 },
+        {
+            name: 'check-service-availability', data: {},
+            opts: {
+                attempts: 1,
+                removeOnComplete: { age: 7 * 24 * 60 * 60, count: 10000 },
+                removeOnFail: { age: 30 * 24 * 60 * 60, count: 10000 },
+            },
+        }
+    );
+
+    // Commission accrual is reconciled from the orders themselves and the
+    // unique (reseller, order) index makes a repeat pass a no-op, so a failed
+    // scan simply waits for the next interval rather than retrying.
+    await getQueue(RESELLER_QUEUE).upsertJobScheduler(
+        'reseller-commission-scan',
+        { every: config.reseller.payoutScanMinutes * 60 * 1000 },
+        {
+            name: 'scan-commissions', data: {},
+            opts: {
+                attempts: 1,
+                removeOnComplete: { age: 7 * 24 * 60 * 60, count: 10000 },
+                removeOnFail: { age: 30 * 24 * 60 * 60, count: 10000 },
+            },
+        }
+    );
+    // Re-reads the admin's promo sheets, returns expired claims and matured
+    // cooldowns to the pool, and retries any failed sheet write-back.
+    await getQueue(RESELLER_QUEUE).upsertJobScheduler(
+        'reseller-promo-sync',
+        { every: config.reseller.promoSyncMinutes * 60 * 1000 },
+        {
+            name: 'sync-promo-campaigns', data: {},
+            opts: {
+                attempts: 1,
                 removeOnComplete: { age: 7 * 24 * 60 * 60, count: 10000 },
                 removeOnFail: { age: 30 * 24 * 60 * 60, count: 10000 },
             },

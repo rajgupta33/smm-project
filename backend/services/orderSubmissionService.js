@@ -8,6 +8,7 @@ const {
 const { refundWallet } = require('./walletService');
 const { appendOrderEvent } = require('./orderEventService');
 const { recordProviderMetric } = require('./providerMetricsService');
+const { isInsufficientFundsMessage, reportInsufficientFunds } = require('./providerBalanceService');
 const { getRuntimeConfig } = require('../config/runtimeConfig');
 
 function defaultNextOrderStatusCheckAt(now = new Date()) {
@@ -187,6 +188,7 @@ async function submitCommittedOrder(order, overrides = {}) {
         recordProviderMetric,
         appendOrderEvent,
         refundWallet,
+        reportInsufficientFunds,
         nextOrderStatusCheckAt: defaultNextOrderStatusCheckAt,
         ...overrides,
     };
@@ -277,6 +279,14 @@ async function submitCommittedOrder(order, overrides = {}) {
         return completeAccepted(claimed, result, dependencies);
     }
     if (result.classification === 'DEFINITIVE_REJECTION') {
+        if (isInsufficientFundsMessage(result.errorMessage)) {
+            // Alerting must never block or undo the refund path.
+            await dependencies.reportInsufficientFunds({
+                providerId: claimed.providerId || null,
+                orderReference: claimed.localOrderId || claimed.orderId,
+                errorMessage: result.errorMessage,
+            }).catch((error) => console.error('Failed to raise insufficient-funds alert:', error.message));
+        }
         return completeRejected(claimed, result, dependencies);
     }
     return completeAmbiguous(claimed, result, dependencies);

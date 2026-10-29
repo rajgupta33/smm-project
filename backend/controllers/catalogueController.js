@@ -33,7 +33,10 @@ function safeProvider(provider) {
 }
 
 function providerPayload(body, { partial = false } = {}) {
-    const allowed = ['code', 'name', 'adapterType', 'apiBaseUrl', 'credentialReference', 'enabled', 'priority', 'timeoutMs'];
+    const allowed = [
+        'code', 'name', 'adapterType', 'apiBaseUrl', 'credentialReference', 'enabled', 'priority', 'timeoutMs',
+        'balanceMonitoringEnabled', 'lowBalanceWarningMinor', 'lowBalanceCriticalMinor',
+    ];
     const payload = Object.fromEntries(allowed
         .filter((field) => body[field] !== undefined)
         .map((field) => [field, body[field]]));
@@ -160,6 +163,49 @@ class CatalogueController {
         }
     }
 
+    async reactivateCatalogueService(req, res) {
+        try {
+            const { serviceId } = req.params;
+            if (!mongoose.isValidObjectId(serviceId)) {
+                return res.status(400).json({ success: false, error: { code: 'INVALID_CATALOGUE_ID', message: 'Catalogue service ID is invalid' } });
+            }
+            const service = await CatalogueService.findById(serviceId);
+            if (!service) {
+                return res.status(404).json({ success: false, error: { message: 'Catalogue service not found' } });
+            }
+            if (!service.autoHiddenAt) {
+                return res.status(409).json({
+                    success: false,
+                    error: { code: 'NOT_AUTO_HIDDEN', message: 'This service was not automatically hidden, so there is nothing to reactivate here' },
+                });
+            }
+            const before = { active: service.active, autoHiddenAt: service.autoHiddenAt, autoHiddenReason: service.autoHiddenReason };
+            service.active = true;
+            service.autoHiddenAt = null;
+            service.autoHiddenReason = null;
+            await service.save();
+            await AuditLog.create({
+                action: 'CATALOGUE_SERVICE_REACTIVATED',
+                actorType: 'ADMIN',
+                actorId: req.currentUser._id,
+                targetType: 'CatalogueService',
+                targetId: String(service._id),
+                requestId: requestIdFor(req),
+                before,
+                after: { active: true, autoHiddenAt: null, autoHiddenReason: null },
+            });
+            return res.json({ success: true, data: service });
+        } catch (error) {
+            return res.status(error.statusCode || 500).json({
+                success: false,
+                error: {
+                    code: error.code || 'CATALOGUE_REACTIVATE_FAILED',
+                    message: error.statusCode ? error.message : 'Catalogue service could not be reactivated',
+                },
+            });
+        }
+    }
+
     async createProvider(req, res) {
         try {
             const payload = providerPayload(req.body);
@@ -231,11 +277,11 @@ class CatalogueController {
 
     async getProviders(req, res) {
         try {
+            // Hydrated (not lean) so providers created before balance monitoring report schema defaults.
             const data = await Provider.find({})
                 .sort({ priority: 1, name: 1 })
                 .limit(safeLimit(req.query.limit))
-                .select('+credentialReference')
-                .lean();
+                .select('+credentialReference');
             res.status(200).json({ success: true, data: data.map(safeProvider) });
         } catch {
             res.status(500).json({ success: false, error: { code: 'PROVIDER_READ_FAILED', message: 'Providers could not be loaded' } });

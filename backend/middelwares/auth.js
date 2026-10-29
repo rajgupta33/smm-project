@@ -61,8 +61,35 @@ function requireAdmin(req, res, next) {
     return next();
 }
 
+/**
+ * A reseller is a normal `user` account that also has a ResellerProfile, so the
+ * authorization boundary is the profile in the database, never a claim in the
+ * token or a role sent by the browser. The loaded profile is attached for the
+ * handlers, which must scope every query to it.
+ */
+async function requireReseller(req, res, next) {
+    try {
+        if (!req.currentUser) {
+            return res.status(401).json({ message: 'Authentication required' });
+        }
+        const ResellerProfile = require('../models/ResellerProfile');
+        const profile = await ResellerProfile.findOne({ userId: req.currentUser._id });
+        if (!profile) {
+            return res.status(403).json({ message: 'Reseller access required', code: 'NOT_A_RESELLER' });
+        }
+        if (profile.status === 'DISABLED') {
+            return res.status(403).json({ message: 'This reseller account is disabled', code: 'RESELLER_DISABLED' });
+        }
+        req.resellerProfile = profile;
+        return next();
+    } catch (error) {
+        return next(error);
+    }
+}
+
 module.exports = {
     authenticate,
     getJwtSecret,
     requireAdmin,
+    requireReseller,
 };

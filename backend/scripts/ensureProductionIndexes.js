@@ -4,6 +4,7 @@ require('./migrationSafety');
 const { connectToDatabase, disconnectFromDatabase } = require('../utils/serverlessDb');
 
 const models = [
+    require('../models/AdminAlert'),
     require('../models/AuditLog'),
     require('../models/CatalogueService'),
     require('../models/DripFeedOrder'),

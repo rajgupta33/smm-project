@@ -20,6 +20,13 @@ const { createApp } = require('../index');
 
 const adminRoutes = [
     ['GET', '/api/admin/analytics/overview'],
+    ['GET', '/api/admin/alerts'],
+    ['GET', '/api/admin/alerts/summary'],
+    ['POST', '/api/admin/alerts/507f1f77bcf86cd799439011/acknowledge'],
+    ['POST', '/api/admin/alerts/507f1f77bcf86cd799439011/resolve'],
+    ['POST', '/api/admin/providerBalances/check'],
+    ['POST', '/api/admin/serviceAvailability/check'],
+    ['POST', '/api/admin/catalogueServices/507f1f77bcf86cd799439011/reactivate'],
     ['POST', '/api/admin/createUser'],
     ['POST', '/api/admin/getUser'],
     ['PUT', '/api/admin/addBalance'],

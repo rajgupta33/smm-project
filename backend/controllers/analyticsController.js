@@ -3,6 +3,7 @@ const User = require('../models/User');
 
 const Provider = require('../models/Provider');
 const Payment = require('../models/Payment');
+const AdminAlert = require('../models/AdminAlert');
 
 class AnalyticsController {
     async getOverview(req, res) {
@@ -17,7 +18,9 @@ class AnalyticsController {
                 todaysRevenueDocs,
                 pendingPayments,
                 reconciliationRequired,
-                providers
+                providers,
+                criticalAlerts,
+                warningAlerts,
             ] = await Promise.all([
                 User.countDocuments({ role: { $ne: 'admin' } }),
                 
@@ -38,7 +41,10 @@ class AnalyticsController {
                 
                 Order.countDocuments({ lifecycleStatus: 'RECONCILIATION_REQUIRED' }),
                 
-                Provider.find({}, 'name enabled healthStatus priority lastSuccessfulSyncAt createdAt updatedAt').lean()
+                Provider.find({}, 'name enabled healthStatus priority lastSuccessfulSyncAt balanceSnapshot balanceMonitoringEnabled createdAt updatedAt').lean(),
+
+                AdminAlert.countDocuments({ active: true, severity: 'CRITICAL' }),
+                AdminAlert.countDocuments({ active: true, severity: 'WARNING' }),
             ]);
 
             const walletLiability = walletLiabilityDocs[0]?.totalLiability || 0;
@@ -56,7 +62,8 @@ class AnalyticsController {
                     todaysMargin,
                     pendingPayments,
                     reconciliationRequired,
-                    providers
+                    providers,
+                    alerts: { critical: criticalAlerts, warning: warningAlerts },
                 }
             });
         } catch (error) {

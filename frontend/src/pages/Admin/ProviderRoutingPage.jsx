@@ -12,6 +12,38 @@ function formatDate(value) {
   return value ? new Date(value).toLocaleString() : 'Not completed';
 }
 
+const BALANCE_LEVEL_TEXT = {
+  OK: 'text-state-success',
+  WARNING: 'text-state-warning',
+  CRITICAL: 'text-state-danger',
+};
+
+function rupeesInput(minor) {
+  return Number.isSafeInteger(minor) ? String(minor / 100) : '';
+}
+
+/** Blank means "no fixed limit" (null); an invalid entry returns undefined. */
+function paiseFromInput(value) {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) return null;
+  const amount = Number(trimmed);
+  if (!Number.isFinite(amount) || amount < 0) return undefined;
+  return Math.round(amount * 100);
+}
+
+function balanceDraftFor(provider) {
+  return {
+    enabled: provider.balanceMonitoringEnabled !== false,
+    warning: rupeesInput(provider.lowBalanceWarningMinor),
+    critical: rupeesInput(provider.lowBalanceCriticalMinor),
+  };
+}
+
+function formatBalance(snapshot) {
+  const amount = (snapshot.balanceMinor / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `₹${amount}${snapshot.currency ? ` ${snapshot.currency}` : ''}`;
+}
+
 function costChangeLabel(change) {
   const before = change.before?.costRateMinor;
   const after = change.after?.costRateMinor;
@@ -33,6 +65,8 @@ export default function ProviderRoutingPage() {
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
   const [applying, setApplying] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [balanceDrafts, setBalanceDrafts] = useState({});
+  const [checkingBalances, setCheckingBalances] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,6 +76,7 @@ export default function ProviderRoutingPage() {
         providerApi.listSyncRuns(),
       ]);
       setProviders(providerData);
+      setBalanceDrafts(Object.fromEntries(providerData.map((provider) => [provider._id, balanceDraftFor(provider)])));
       setCatalogue(catalogueData);
       setOffers(offerData);
       setSyncRuns(syncRunData);
@@ -126,6 +161,16 @@ export default function ProviderRoutingPage() {
     }
   };
 
+  const reactivateService = async (service) => {
+    try {
+      await providerApi.reactivateCatalogueService(service._id);
+      toast.success(`${service.displayName} reactivated and visible to customers again`);
+      await load();
+    } catch (error) {
+      toast.error(error.response?.data?.error?.message || 'Service could not be reactivated');
+    }
+  };
+
   const queueSync = async (provider) => {
     try {
       await providerApi.queueSyncReport(provider._id);
@@ -133,6 +178,51 @@ export default function ProviderRoutingPage() {
       await load();
     } catch (error) {
       toast.error(error.response?.data?.error?.message || 'Provider sync could not be queued');
+    }
+  };
+
+  const updateBalanceDraft = (provider, changes) => {
+    setBalanceDrafts((current) => ({
+      ...current,
+      [provider._id]: { ...(current[provider._id] || balanceDraftFor(provider)), ...changes },
+    }));
+  };
+
+  const saveBalanceSettings = async (provider) => {
+    const draft = balanceDrafts[provider._id] || balanceDraftFor(provider);
+    const warning = paiseFromInput(draft.warning);
+    const critical = paiseFromInput(draft.critical);
+    if (warning === undefined || critical === undefined) {
+      toast.error('Enter alert limits as rupee amounts, or leave them blank');
+      return;
+    }
+    if (warning !== null && critical !== null && critical > warning) {
+      toast.error('The critical limit must be lower than the warning limit');
+      return;
+    }
+    try {
+      await providerApi.updateProvider(provider._id, {
+        balanceMonitoringEnabled: draft.enabled,
+        lowBalanceWarningMinor: warning,
+        lowBalanceCriticalMinor: critical,
+      });
+      toast.success(`Balance alert limits saved for ${provider.name}`);
+      await load();
+    } catch (error) {
+      toast.error(error.response?.data?.error?.message || 'Balance alert limits could not be saved');
+    }
+  };
+
+  const checkBalances = async () => {
+    setCheckingBalances(true);
+    try {
+      const { counts } = await providerApi.checkBalances();
+      toast.success(`Checked ${counts.scanned} provider balance${counts.scanned === 1 ? '' : 's'}`);
+      await load();
+    } catch (error) {
+      toast.error(error.response?.data?.error?.message || 'Provider balances could not be checked');
+    } finally {
+      setCheckingBalances(false);
     }
   };
 
@@ -201,22 +291,67 @@ export default function ProviderRoutingPage() {
             </label>
           </div>
           <p className="text-xs text-amber-300">The referenced environment variable must already exist on the backend. API keys are never stored in MongoDB or returned to this page.</p>
-          <button className="rounded bg-brand-gradient text-white hover:brightness-110 px-4 py-2 font-semibold">Create provider</button>
+          <button type="submit" className="rounded bg-brand-gradient text-white hover:brightness-110 px-4 py-2 font-semibold">Create provider</button>
         </form>
 
         <section className="bg-surface border border-line rounded-xl p-5">
-          <h2 className="text-xl font-semibold mb-4">Providers</h2>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold">Providers</h2>
+              <p className="text-sm text-ink-muted">Balances are checked automatically every 30 minutes. Low balances raise an alert.</p>
+            </div>
+            <button type="button" onClick={checkBalances} disabled={checkingBalances} className="rounded border border-line px-3 py-1.5 text-sm disabled:opacity-50">
+              {checkingBalances ? 'Checking…' : 'Check balances now'}
+            </button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {providers.map((provider) => (
-              <article key={provider._id} className="rounded border border-line bg-surface p-4">
-                <div className="flex justify-between gap-4">
-                  <div><h3 className="font-semibold">{provider.name}</h3><p className="text-sm text-ink-muted">{provider.code} · {provider.healthStatus}</p></div>
-                  <span className={provider.enabled ? 'text-state-success' : 'text-state-danger'}>{provider.enabled ? 'Enabled' : 'Disabled'}</span>
-                </div>
-                <p className="text-xs text-ink-muted mt-2 break-all">{provider.apiBaseUrl}</p>
-                <button onClick={() => queueSync(provider)} className="mt-3 rounded bg-blue-700 hover:bg-blue-600 px-3 py-1.5 text-sm">Queue report-only sync</button>
-              </article>
-            ))}
+            {providers.map((provider) => {
+              const snapshot = provider.balanceSnapshot;
+              const balanceDraft = balanceDrafts[provider._id] || balanceDraftFor(provider);
+              return (
+                <article key={provider._id} className="rounded border border-line bg-surface p-4">
+                  <div className="flex justify-between gap-4">
+                    <div><h3 className="font-semibold">{provider.name}</h3><p className="text-sm text-ink-muted">{provider.code} · {provider.healthStatus}</p></div>
+                    <span className={provider.enabled ? 'text-state-success' : 'text-state-danger'}>{provider.enabled ? 'Enabled' : 'Disabled'}</span>
+                  </div>
+                  <p className="text-xs text-ink-muted mt-2 break-all">{provider.apiBaseUrl}</p>
+                  <button onClick={() => queueSync(provider)} className="mt-3 rounded bg-blue-700 hover:bg-blue-600 px-3 py-1.5 text-sm">Queue report-only sync</button>
+
+                  <div className="mt-4 rounded border border-line bg-surface-sunken p-3 text-sm">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <span className="font-medium">Provider balance</span>
+                      {snapshot?.checkedAt
+                        ? <span className={`tnum font-semibold ${BALANCE_LEVEL_TEXT[snapshot.level] || ''}`}>{formatBalance(snapshot)}</span>
+                        : <span className="text-ink-muted">Not checked yet</span>}
+                    </div>
+                    {snapshot?.checkedAt && (
+                      <p className="mt-1 text-xs text-ink-muted">
+                        Checked {formatDate(snapshot.checkedAt)}
+                        {Number.isSafeInteger(snapshot.runwayHours) ? ` · lasts about ${snapshot.runwayHours} hours at recent spend` : ''}
+                      </p>
+                    )}
+                    {provider.balanceCheckError && (
+                      <p className="mt-1 text-xs text-state-danger">Last check failed: {provider.balanceCheckError.message}</p>
+                    )}
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <label className="text-xs text-ink-soft">Warn below (₹)
+                        <input type="number" min="0" step="0.01" aria-label={`Low balance warning for ${provider.name}`} value={balanceDraft.warning} onChange={(event) => updateBalanceDraft(provider, { warning: event.target.value })} className="mt-1 w-full rounded bg-surface border border-line p-2 text-sm" />
+                      </label>
+                      <label className="text-xs text-ink-soft">Critical below (₹)
+                        <input type="number" min="0" step="0.01" aria-label={`Critical balance for ${provider.name}`} value={balanceDraft.critical} onChange={(event) => updateBalanceDraft(provider, { critical: event.target.value })} className="mt-1 w-full rounded bg-surface border border-line p-2 text-sm" />
+                      </label>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                      <label className="flex items-center gap-2 text-xs text-ink-soft">
+                        <input type="checkbox" role="switch" checked={balanceDraft.enabled} onChange={(event) => updateBalanceDraft(provider, { enabled: event.target.checked })} />
+                        Balance alerts on
+                      </label>
+                      <button type="button" onClick={() => saveBalanceSettings(provider)} className="rounded border border-line px-3 py-1.5 text-sm">Save alert limits</button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </section>
 
@@ -331,7 +466,16 @@ export default function ProviderRoutingPage() {
                 const draft = routingDrafts[service._id] || {};
                 return (
                   <tr key={service._id} className="border-b border-line">
-                    <td className="p-2"><div className="font-medium">{service.displayName}</div><div className="text-xs text-ink-muted">{service.min}–{service.max}</div></td>
+                    <td className="p-2">
+                      <div className="font-medium">{service.displayName}</div>
+                      <div className="text-xs text-ink-muted">{service.min}–{service.max}</div>
+                      {service.autoHiddenAt && (
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className="badge-danger">Auto-hidden</span>
+                          <button type="button" onClick={() => reactivateService(service)} className="text-xs font-semibold text-brand-blue underline">Reactivate</button>
+                        </div>
+                      )}
+                    </td>
                     <td className="p-2"><select aria-label={`Primary provider for ${service.displayName}`} value={draft.primaryProviderId || ''} onChange={(event) => setRoutingDrafts((current) => ({ ...current, [service._id]: { ...draft, primaryProviderId: event.target.value } }))} className="w-full rounded bg-surface border border-line p-2"><option value="">Select primary</option>{eligible.map((provider) => <option key={provider._id} value={provider._id}>{provider.name}</option>)}</select></td>
                     <td className="p-2"><select aria-label={`Fallback provider for ${service.displayName}`} value={draft.fallbackProviderId || ''} onChange={(event) => setRoutingDrafts((current) => ({ ...current, [service._id]: { ...draft, fallbackProviderId: event.target.value } }))} className="w-full rounded bg-surface border border-line p-2"><option value="">No fallback</option>{eligible.map((provider) => <option key={provider._id} value={provider._id}>{provider.name}</option>)}</select></td>
                     <td className="p-2"><button onClick={() => saveRouting(service)} className="rounded bg-brand-gradient text-white hover:brightness-110 px-3 py-2">Save</button></td>

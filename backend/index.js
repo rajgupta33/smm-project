@@ -4,7 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const { connectToDatabase, disconnectFromDatabase } = require('./utils/serverlessDb');
-const { authenticate, getJwtSecret, requireAdmin } = require('./middelwares/auth');
+const { authenticate, getJwtSecret, requireAdmin, requireReseller } = require('./middelwares/auth');
 const { getRuntimeConfig } = require('./config/runtimeConfig');
 const { csrfProtection } = require('./middelwares/csrf');
 const {
@@ -126,6 +126,9 @@ function createApp({ connect = connectToDatabase } = {}) {
 
   const userRoutes = require('./routes/userRoutes');
   app.use('/api/user', authenticate, csrfProtection, userRoutes);
+
+  const resellerRoutes = require('./routes/resellerRoutes');
+  app.use('/api/reseller', authenticate, requireReseller, csrfProtection, resellerRoutes);
 
   const paymentRoutes = require('./routes/paymentRoutes');
   app.use('/api/payments', authenticate, csrfProtection, paymentRoutes);

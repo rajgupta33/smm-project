@@ -93,6 +93,22 @@ test('timeout and provider server errors are ambiguous', async () => {
     assert.equal(transport.failureKind, 'TRANSPORT');
 });
 
+test('balance requests use the selected provider connection', async () => {
+    let request;
+    axios.post = async (...args) => {
+        request = args;
+        return { status: 200, data: { balance: '100.84', currency: 'INR' } };
+    };
+    const response = await providerClient.getBalance({
+        apiUrl: 'https://second-provider.invalid/v2', apiKey: 'second-secret', timeoutMs: 4321,
+    });
+    assert.equal(request[0], 'https://second-provider.invalid/v2');
+    assert.equal(request[1].get('action'), 'balance');
+    assert.equal(request[1].get('key'), 'second-secret');
+    assert.equal(request[2].timeout, 4321);
+    assert.equal(response.data.balance, '100.84');
+});
+
 test('provider response snapshots redact secret-shaped fields', () => {
     const snapshot = providerClient.responseSnapshot({
         key: 'secret', nested: { apiKey: 'also-secret', result: 'safe' },

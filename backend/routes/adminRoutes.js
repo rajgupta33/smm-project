@@ -9,8 +9,18 @@ const refillController = require('../controllers/refillController');
 const ticketController = require('../controllers/ticketController');
 const manualTaskController = require('../controllers/manualTaskController');
 const analyticsController = require('../controllers/analyticsController');
+const alertController = require('../controllers/alertController');
+const resellerAdminController = require('../controllers/resellerAdminController');
 
 router.get('/analytics/overview', analyticsController.getOverview);
+
+router.get('/alerts', alertController.list);
+router.get('/alerts/summary', alertController.summary);
+router.post('/alerts/:alertId/acknowledge', alertController.acknowledge);
+router.post('/alerts/:alertId/resolve', alertController.resolve);
+router.post('/providerBalances/check', alertController.checkProviderBalances);
+router.post('/serviceAvailability/check', alertController.checkServiceAvailability);
+router.post('/catalogueServices/:serviceId/reactivate', catalogueController.reactivateCatalogueService);
 
 router.post('/createUser', adminController.createUser);
 router.post('/getUser', adminController.getUser);
@@ -51,6 +61,24 @@ router.get('/tickets', ticketController.listAdmin);
 router.get('/tickets/:publicTicketId', ticketController.getAdmin);
 router.post('/tickets/:publicTicketId/messages', ticketController.addAdminMessage);
 router.patch('/tickets/:publicTicketId', ticketController.updateAdmin);
+
+// Resellers: admin creates the account and sets that reseller's commission.
+router.get('/resellers', resellerAdminController.listResellers);
+router.post('/resellers', resellerAdminController.createReseller);
+router.post('/resellers/convert', resellerAdminController.convertUser);
+router.post('/resellers/commissionScan', resellerAdminController.runCommissionScan);
+router.post('/resellers/reassignCustomer', resellerAdminController.reassignCustomer);
+router.get('/resellers/:profileId', resellerAdminController.getReseller);
+router.patch('/resellers/:profileId', resellerAdminController.updateReseller);
+
+// WhatsApp promo campaigns. The Google Sheet is assigned here and nowhere else.
+router.get('/promoCampaigns', resellerAdminController.listCampaigns);
+router.post('/promoCampaigns', resellerAdminController.createCampaign);
+router.get('/promoCampaigns/sheetTabs', resellerAdminController.listSheetTabs);
+router.get('/promoCampaigns/:campaignId', resellerAdminController.getCampaign);
+router.patch('/promoCampaigns/:campaignId', resellerAdminController.updateCampaign);
+router.post('/promoCampaigns/:campaignId/sync', resellerAdminController.syncCampaign);
+router.get('/promoCampaigns/:campaignId/leads', resellerAdminController.listCampaignLeads);
 
 router.get('/manualTasks', manualTaskController.listTasks);
 router.post('/manualTasks/:taskId/assign', manualTaskController.assignTask);

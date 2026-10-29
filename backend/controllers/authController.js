@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const ResellerProfile = require('../models/ResellerProfile');
 const { buildUserIdQuery } = require('../utils/userId');
 const { getJwtSecret } = require('../middelwares/auth');
 const { CSRF_COOKIE, csrfCookieOptions } = require('../middelwares/csrf');
@@ -67,11 +68,17 @@ class AuthController {
             const walletBalanceMinor = Number.isSafeInteger(user.walletBalanceMinor)
                 ? user.walletBalanceMinor
                 : Math.round((Number(user.money) + Number.EPSILON) * 100);
+            // A reseller is a `user` with a ResellerProfile; the flag is only a
+            // UI hint. Every reseller route re-checks the profile server-side.
+            const resellerProfile = await ResellerProfile.findOne({ userId: user._id })
+                .select('referralCode status').lean();
             res.status(200).json({
                 userId: user.userId,
                 role: user.role,
                 money: walletBalanceMinor / 100,
                 walletBalanceMinor,
+                isReseller: Boolean(resellerProfile) && resellerProfile.status !== 'DISABLED',
+                referralCode: resellerProfile?.referralCode || null,
             });
         } catch (err) {
             console.error('Login error:', err);
@@ -90,6 +97,8 @@ class AuthController {
             if (!user) {
                 return res.status(404).json({ error: 'User not found' });
             }
+            const resellerProfile = await ResellerProfile.findOne({ userId: user._id })
+                .select('referralCode status').lean();
             res.status(200).json({
                 userId: user.userId,
                 role: user.role,
@@ -99,6 +108,8 @@ class AuthController {
                 walletBalanceMinor: Number.isSafeInteger(user.walletBalanceMinor)
                     ? user.walletBalanceMinor
                     : Math.round((Number(user.money) + Number.EPSILON) * 100),
+                isReseller: Boolean(resellerProfile) && resellerProfile.status !== 'DISABLED',
+                referralCode: resellerProfile?.referralCode || null,
             });
         } catch (error) {
             console.error('AuthMe error:', error);

@@ -23,6 +23,17 @@ const UserSchema = new mongoose.Schema({
     },
     services: [{
         type: String
-    }]
+    }],
+    // Referral attribution. Set once at signup/creation and only an admin may
+    // change it afterwards, with an audit entry, so commission cannot be moved
+    // between resellers silently.
+    referredBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'ResellerProfile',
+        default: null,
+    },
+    referredAt: { type: Date, default: null },
 });
+
+UserSchema.index({ referredBy: 1 });
 module.exports = mongoose.model('User', UserSchema);

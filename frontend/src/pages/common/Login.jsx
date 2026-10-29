@@ -34,7 +34,10 @@ export default function LoginPage() {
       const response = await authApi.login({ userId: userId.trim(), password });
       if (response.success) {
         toast.success('Welcome back!', { autoClose: 1500 });
-        auth.login(response.data.userId, response.data.role, response.data.money);
+        auth.login(response.data.userId, response.data.role, response.data.money, {
+          isReseller: response.data.isReseller,
+          referralCode: response.data.referralCode,
+        });
       } else {
         toast.error(response.message || 'Those details did not match an account.');
       }

@@ -6,10 +6,12 @@ const {
     getProviderAdapterForProvider,
 } = require('../providers/providerRegistry');
 const { appendOrderEvent } = require('./orderEventService');
+const { refundWallet } = require('./walletService');
 
 const TERMINAL_STATUSES = new Set([
     'completed', 'partial', 'canceled', 'cancelled', 'rejected', 'failed', 'error',
 ]);
+const UNDERDELIVERY_STATUSES = new Set(['partial', 'canceled', 'cancelled']);
 
 function dependencies(overrides = {}) {
     return {
@@ -18,9 +20,25 @@ function dependencies(overrides = {}) {
         getCurrentProviderAdapter: overrides.getCurrentProviderAdapter || getCurrentProviderAdapter,
         getProviderAdapterForProvider: overrides.getProviderAdapterForProvider || getProviderAdapterForProvider,
         appendOrderEvent: overrides.appendOrderEvent || appendOrderEvent,
+        refundWallet: overrides.refundWallet || refundWallet,
         config: overrides.config || getRuntimeConfig().orderStatus,
         now: overrides.now ? overrides.now() : new Date(),
     };
+}
+
+/**
+ * Providers report "remains" (undelivered quantity) on partial/canceled
+ * orders. The customer paid the selling price for the whole order, so the
+ * refund owed is that same proportion of what they paid, not the provider's
+ * own cost-side refund.
+ */
+function underdeliveryRefundAmountMinor(order, remains) {
+    const snapshot = order.pricingSnapshot;
+    const remainsQuantity = Number(remains);
+    if (!snapshot || !Number.isFinite(remainsQuantity) || remainsQuantity <= 0) return 0;
+    const cappedRemains = Math.min(remainsQuantity, snapshot.quantity);
+    const amountMinor = Math.floor((snapshot.sellingTotalMinor * cappedRemains) / snapshot.quantity);
+    return Number.isSafeInteger(amountMinor) && amountMinor > 0 ? amountMinor : 0;
 }
 
 function normalizedStatus(value) {
@@ -63,8 +81,9 @@ async function pollOrderStatus(orderId, overrides = {}) {
 
     const response = await adapter.getOrderStatus(order.providerOrderId);
     const rawStatus = response?.status || order.lastStatus;
+    const normalized = normalizedStatus(rawStatus);
     const terminal = isTerminalOrderStatus(rawStatus);
-    const completed = normalizedStatus(rawStatus) === 'completed';
+    const completed = normalized === 'completed';
     const now = deps.now;
 
     const update = {
@@ -79,6 +98,27 @@ async function pollOrderStatus(orderId, overrides = {}) {
     }
     if (completed) update.lifecycleStatus = 'COMPLETED';
 
+    let refundAmountMinor = 0;
+    if (UNDERDELIVERY_STATUSES.has(normalized) && order.fundingStatus === 'DEBITED') {
+        refundAmountMinor = underdeliveryRefundAmountMinor(order, response?.remains);
+        if (refundAmountMinor > 0) {
+            const orderReference = order.localOrderId || order.orderId;
+            await deps.refundWallet({
+                userId: order.user,
+                amountMinor: refundAmountMinor,
+                type: 'REFUND',
+                sourceType: 'ORDER',
+                sourceId: orderReference,
+                idempotencyKey: `order-status-refund:${orderReference}`,
+                actorType: 'SYSTEM',
+                description: `Refund for undelivered quantity on ${normalized} order ${orderReference}`,
+            });
+            update.fundingStatus = refundAmountMinor >= order.pricingSnapshot.sellingTotalMinor
+                ? 'REFUNDED' : 'PARTIALLY_REFUNDED';
+            update.lifecycleStatus = normalized === 'partial' ? 'COMPLETED' : 'CANCELLED';
+        }
+    }
+
     const updated = await deps.Order.findOneAndUpdate(
         { _id: order._id, lifecycleStatus: 'SUBMITTED' },
         { $set: update },
@@ -91,7 +131,7 @@ async function pollOrderStatus(orderId, overrides = {}) {
             orderId: order._id,
             userId: order.user,
             eventType: 'STATUS_CHANGED',
-            metadata: { oldStatus: order.lastStatus, newStatus: rawStatus },
+            metadata: { oldStatus: order.lastStatus, newStatus: rawStatus, refundAmountMinor: refundAmountMinor || undefined },
         }).catch((error) => console.error('Failed to append STATUS_CHANGED event', error.message));
     }
 

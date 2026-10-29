@@ -52,6 +52,12 @@ const CatalogueServiceSchema = new mongoose.Schema({
         default: null,
     },
     active: { type: Boolean, default: true, required: true },
+    // Set only by the automated service-availability scan when it confirms a
+    // mapped provider offer is gone and no other offer covers this service.
+    // Distinguishes a system takedown from an admin's own deliberate disable
+    // so the admin UI can offer a one-click re-enable only for the former.
+    autoHiddenAt: { type: Date, default: null },
+    autoHiddenReason: { type: String, default: null, trim: true, maxlength: 500 },
     visibility: {
         type: String,
         enum: ['PUBLIC', 'ASSIGNED_ONLY', 'HIDDEN'],
@@ -72,5 +78,6 @@ CatalogueServiceSchema.path('max').validate(function validateMaximum(value) {
 
 CatalogueServiceSchema.index({ legacyServiceId: 1 }, { unique: true, sparse: true });
 CatalogueServiceSchema.index({ active: 1, visibility: 1, platform: 1, category: 1 });
+CatalogueServiceSchema.index({ autoHiddenAt: 1 }, { sparse: true });
 
 module.exports = mongoose.model('CatalogueService', CatalogueServiceSchema);

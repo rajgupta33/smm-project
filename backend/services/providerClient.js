@@ -162,9 +162,18 @@ async function listServices(connection) {
     }), { timeout: timeoutMs });
 }
 
+async function getBalance(connection) {
+    const { apiUrl, apiKey, timeoutMs } = providerConfig(connection);
+    return axios.post(apiUrl, new URLSearchParams({
+        key: apiKey,
+        action: 'balance',
+    }), { timeout: timeoutMs });
+}
+
 module.exports = {
     classifyError,
     classifyResponse,
+    getBalance,
     getOrderStatus,
     getRefillStatus,
     listServices,

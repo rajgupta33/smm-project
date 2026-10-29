@@ -57,12 +57,12 @@ export const authApi = {
     try {
       const response = await axios.get(`${API_BASE_URL}/auth/me`, { withCredentials: true });
       if (response.status === 200) {
-        const { userId, role, wallet } = response.data;
+        const { userId, role, wallet, isReseller, referralCode } = response.data;
         return {
           success: true,
           data: {
             isAuthenticated: true,
-            user: { id: userId, role, wallet }
+            user: { id: userId, role, wallet, isReseller: Boolean(isReseller), referralCode: referralCode || null }
           }
         };
       } else {
@@ -70,7 +70,7 @@ export const authApi = {
           success: false,
           data: {
             isAuthenticated: false,
-            user: { id: '', role: '', wallet: 0 }
+            user: { id: '', role: '', wallet: 0, isReseller: false, referralCode: null }
           }
         };
       }
@@ -79,7 +79,7 @@ export const authApi = {
         success: false,
         data: {
           isAuthenticated: false,
-          user: { id: '', role: '', wallet: 0 }
+          user: { id: '', role: '', wallet: 0, isReseller: false, referralCode: null }
         }
       };
     }
@@ -163,6 +163,97 @@ export const analyticsApi = {
   ).data.data,
 };
 
+export const alertApi = {
+  list: async (view = 'active') => (
+    await axios.get(`${API_BASE_URL}/admin/alerts`, { params: { view, limit: 100 } })
+  ).data.data,
+  summary: async () => (
+    await axios.get(`${API_BASE_URL}/admin/alerts/summary`)
+  ).data.data,
+  acknowledge: async (alertId) => (
+    await axios.post(`${API_BASE_URL}/admin/alerts/${encodeURIComponent(alertId)}/acknowledge`, {}, {
+      headers: { 'X-Request-Id': crypto.randomUUID() },
+    })
+  ).data.data,
+  resolve: async (alertId) => (
+    await axios.post(`${API_BASE_URL}/admin/alerts/${encodeURIComponent(alertId)}/resolve`, {}, {
+      headers: { 'X-Request-Id': crypto.randomUUID() },
+    })
+  ).data.data,
+};
+
+export const resellerAdminApi = {
+  list: async (params = {}) => (
+    await axios.get(`${API_BASE_URL}/admin/resellers`, { params })
+  ).data,
+  get: async (profileId) => (
+    await axios.get(`${API_BASE_URL}/admin/resellers/${encodeURIComponent(profileId)}`)
+  ).data,
+  create: async (data) => (
+    await axios.post(`${API_BASE_URL}/admin/resellers`, data)
+  ).data,
+  convert: async (data) => (
+    await axios.post(`${API_BASE_URL}/admin/resellers/convert`, data)
+  ).data,
+  update: async (profileId, data) => (
+    await axios.patch(`${API_BASE_URL}/admin/resellers/${encodeURIComponent(profileId)}`, data)
+  ).data.reseller,
+  reassignCustomer: async (data) => (
+    await axios.post(`${API_BASE_URL}/admin/resellers/reassignCustomer`, data)
+  ).data,
+  runCommissionScan: async () => (
+    await axios.post(`${API_BASE_URL}/admin/resellers/commissionScan`, {})
+  ).data,
+};
+
+export const promoCampaignApi = {
+  list: async (params = {}) => (
+    await axios.get(`${API_BASE_URL}/admin/promoCampaigns`, { params })
+  ).data,
+  get: async (campaignId) => (
+    await axios.get(`${API_BASE_URL}/admin/promoCampaigns/${encodeURIComponent(campaignId)}`)
+  ).data,
+  create: async (data) => (
+    await axios.post(`${API_BASE_URL}/admin/promoCampaigns`, data)
+  ).data,
+  update: async (campaignId, data) => (
+    await axios.patch(`${API_BASE_URL}/admin/promoCampaigns/${encodeURIComponent(campaignId)}`, data)
+  ).data.campaign,
+  sync: async (campaignId) => (
+    await axios.post(`${API_BASE_URL}/admin/promoCampaigns/${encodeURIComponent(campaignId)}/sync`, {})
+  ).data,
+  sheetTabs: async (sheetUrl) => (
+    await axios.get(`${API_BASE_URL}/admin/promoCampaigns/sheetTabs`, { params: { sheetUrl } })
+  ).data,
+  leads: async (campaignId, params = {}) => (
+    await axios.get(`${API_BASE_URL}/admin/promoCampaigns/${encodeURIComponent(campaignId)}/leads`, { params })
+  ).data,
+};
+
+/** Reseller-facing endpoints. The panel scopes every one of these server-side. */
+export const resellerApi = {
+  dashboard: async () => (await axios.get(`${API_BASE_URL}/reseller/dashboard`)).data,
+  commissions: async (params = {}) => (
+    await axios.get(`${API_BASE_URL}/reseller/commissions`, { params })
+  ).data,
+  customers: async (params = {}) => (
+    await axios.get(`${API_BASE_URL}/reseller/customers`, { params })
+  ).data,
+  marketing: async () => (await axios.get(`${API_BASE_URL}/reseller/marketing`)).data,
+  claimLead: async (campaignId = null) => (
+    await axios.post(`${API_BASE_URL}/reseller/marketing/leads/claim`, { campaignId })
+  ).data,
+  markSent: async (leadId) => (
+    await axios.post(`${API_BASE_URL}/reseller/marketing/leads/${encodeURIComponent(leadId)}/sent`, {})
+  ).data,
+  releaseLead: async (leadId, reason) => (
+    await axios.post(`${API_BASE_URL}/reseller/marketing/leads/${encodeURIComponent(leadId)}/release`, { reason })
+  ).data,
+  optOutLead: async (leadId) => (
+    await axios.post(`${API_BASE_URL}/reseller/marketing/leads/${encodeURIComponent(leadId)}/optOut`, {})
+  ).data,
+};
+
 export const operationsApi = {
   listReconciliationOrders: async () => (
     await axios.get(`${API_BASE_URL}/admin/operations/reconciliationOrders`, { params: { limit: 100 } })
@@ -199,6 +290,15 @@ export const providerApi = {
   ).data.data,
   updateProvider: async (providerId, data) => (
     await axios.patch(`${API_BASE_URL}/admin/providers/${encodeURIComponent(providerId)}`, data)
+  ).data.data,
+  checkBalances: async () => (
+    await axios.post(`${API_BASE_URL}/admin/providerBalances/check`, {})
+  ).data.data,
+  checkServiceAvailability: async () => (
+    await axios.post(`${API_BASE_URL}/admin/serviceAvailability/check`, {})
+  ).data.data,
+  reactivateCatalogueService: async (catalogueServiceId) => (
+    await axios.post(`${API_BASE_URL}/admin/catalogueServices/${encodeURIComponent(catalogueServiceId)}/reactivate`, {})
   ).data.data,
   listCatalogue: async () => (
     await axios.get(`${API_BASE_URL}/admin/catalogueServices`, { params: { limit: 200 } })
@@ -396,7 +496,11 @@ export const serviceApi = {
       }
     } catch (error) {
       console.error('API Error (createUser):', error);
-      return { success: false, message: error.response?.data?.message || error.message };
+      // The admin API reports validation failures (duplicate ID, unknown
+      // referral code) in `error`, not `message`, so check both or the form
+      // falls back to a generic string that hides the real cause.
+      const body = error.response?.data;
+      return { success: false, message: body?.error || body?.message || error.message };
     }
   },
 

@@ -150,6 +150,43 @@ test('definitive rejection atomically refunds and records rejected state', async
     assert.equal(context.counts().refunds, 1);
 });
 
+test('insufficient-funds rejection raises a provider alert without blocking the refund', async () => {
+    const context = harness({
+        classification: 'DEFINITIVE_REJECTION',
+        failureKind: 'PROVIDER_REJECTION',
+        errorMessage: 'Not enough funds on balance',
+    });
+    context.state.providerId = 'provider-db-id';
+    const alerts = [];
+    context.dependencies.reportInsufficientFunds = async (input) => {
+        alerts.push(input);
+        throw new Error('alert store unavailable');
+    };
+    const originalError = console.error;
+    console.error = () => {};
+    try {
+        const result = await submitCommittedOrder(context.state, context.dependencies);
+        assert.equal(result.lifecycleStatus, 'PROVIDER_REJECTED');
+    } finally {
+        console.error = originalError;
+    }
+    assert.equal(context.counts().refunds, 1);
+    assert.deepEqual(alerts, [{
+        providerId: 'provider-db-id',
+        orderReference: 'ord_local',
+        errorMessage: 'Not enough funds on balance',
+    }]);
+});
+
+test('ordinary provider rejections do not raise a funds alert', async () => {
+    const context = harness({
+        classification: 'DEFINITIVE_REJECTION', failureKind: 'PROVIDER_REJECTION', errorMessage: 'Invalid target',
+    });
+    context.dependencies.reportInsufficientFunds = async () => assert.fail('no alert expected');
+    await submitCommittedOrder(context.state, context.dependencies);
+    assert.equal(context.counts().refunds, 1);
+});
+
 test('ambiguous timeout requires reconciliation and never refunds or retries', async () => {
     const context = harness({
         classification: 'AMBIGUOUS', failureKind: 'TIMEOUT', errorMessage: 'Timed out',

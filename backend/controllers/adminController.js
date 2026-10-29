@@ -5,6 +5,8 @@ const Order = require('../models/Order');
 const User = require('../models/User');
 const WalletLedger = require('../models/WalletLedger');
 const Provider = require('../models/Provider');
+const ResellerProfile = require('../models/ResellerProfile');
+const { findByReferralCode: findResellerByReferralCode } = require('../services/resellerService');
 require('dotenv').config();
 const { buildUserIdQuery, normalizeUserId } = require('../utils/userId');
 const { adminAdjustWallet } = require('../services/walletService');
@@ -14,7 +16,7 @@ const { getProviderAdapterForProvider } = require('../providers/providerRegistry
 class AdminController {
 
     async createUser(req, res) {
-        const { userId, password, role, services } = req.payload;
+        const { userId, password, role, services, referralCode } = req.payload;
 
         const normalizedUserId = normalizeUserId(userId);
 
@@ -26,6 +28,19 @@ class AdminController {
         }
 
         try {
+            // Optional referral attribution, set once at creation. Only an admin
+            // can change it afterwards, through the reseller reassign endpoint.
+            let referrer = null;
+            if (referralCode) {
+                referrer = await findResellerByReferralCode(referralCode);
+                if (!referrer) {
+                    return res.status(400).json({ error: 'Referral code not found', code: 'REFERRAL_CODE_NOT_FOUND' });
+                }
+                if (role !== 'user') {
+                    return res.status(400).json({ error: 'Only customer accounts can be attributed to a reseller' });
+                }
+            }
+
             const hashedPassword = await bcrypt.hash(password, 10);
             const newUser = new User({
                 userId: normalizeUserId(userId),
@@ -34,11 +49,23 @@ class AdminController {
                 services,
                 money: 0,
                 walletBalanceMinor: 0,
+                referredBy: referrer?._id || null,
+                referredAt: referrer ? new Date() : null,
             });
 
             await newUser.save();
+            if (referrer) {
+                await ResellerProfile.updateOne(
+                    { _id: referrer._id },
+                    { $inc: { 'totals.referredCustomers': 1 } }
+                ).catch((error) => console.error('Referral count update failed:', error.message));
+            }
 
-            res.status(200).json({ userId: normalizedUserId, role });
+            res.status(200).json({
+                userId: normalizedUserId,
+                role,
+                referredBy: referrer?.referralCode || null,
+            });
         } catch (err) {
             console.log(err)
             res.status(500).json({ error: 'Error creating user' });

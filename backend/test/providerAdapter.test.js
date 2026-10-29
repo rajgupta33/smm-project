@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { assertProviderAdapter } = require('../providers/providerAdapter');
-const { normalizeProviderService } = require('../providers/legacySmmProviderAdapter');
+const { normalizeProviderService, parseProviderBalance } = require('../providers/legacySmmProviderAdapter');
 const {
     getProviderAdapterForProvider,
     resolveCredentialReference,
@@ -34,6 +34,18 @@ test('provider adapters bind each provider URL, environment credential, and time
         () => resolveCredentialReference('env:MISSING_KEY', {}),
         (error) => error.code === 'PROVIDER_CREDENTIAL_UNAVAILABLE'
     );
+});
+
+test('legacy provider balances parse into paise and reject errors or malformed values', () => {
+    assert.deepEqual(parseProviderBalance({ balance: '100.84292', currency: 'inr' }), { balanceMinor: 10084, currency: 'INR' });
+    assert.deepEqual(parseProviderBalance({ balance: -5.5 }), { balanceMinor: -550, currency: null });
+    assert.throws(
+        () => parseProviderBalance({ error: 'Invalid API key' }),
+        (error) => error.code === 'PROVIDER_BALANCE_REJECTED'
+    );
+    for (const data of [{}, { balance: '' }, { balance: 'n/a' }, null]) {
+        assert.throws(() => parseProviderBalance(data), (error) => error.code === 'MALFORMED_BALANCE_RESPONSE');
+    }
 });
 
 test('legacy provider services normalize without exposing a customer catalogue ID', () => {

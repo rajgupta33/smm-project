@@ -10,6 +10,10 @@ export const AuthProvider = ({ children }) => {
             id: '',
             role: '',
             wallet: 0,
+            // A reseller is a customer account with a reseller profile. This is
+            // only a navigation hint; the backend re-checks it on every call.
+            isReseller: false,
+            referralCode: null,
         },
         isLoading: true, // Start with loading true
     });
@@ -21,7 +25,13 @@ export const AuthProvider = ({ children }) => {
                 const res = data.data.user;
                 setAuth({
                     isAuthenticated: true,
-                    user: { id: res.id, role: res.role, wallet: res.wallet },
+                    user: {
+                        id: res.id,
+                        role: res.role,
+                        wallet: res.wallet,
+                        isReseller: Boolean(res.isReseller),
+                        referralCode: res.referralCode || null,
+                    },
                     isLoading: false,
                 });
                 return true;
@@ -31,7 +41,7 @@ export const AuthProvider = ({ children }) => {
         }
         setAuth({
             isAuthenticated: false,
-            user: { id: '', role: '', wallet: 0 },
+            user: { id: '', role: '', wallet: 0, isReseller: false, referralCode: null },
             isLoading: false,
         });
         return false;
@@ -39,10 +49,16 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => { refreshAuth(); }, [refreshAuth]);
 
-    const login = (id, role, wallet) => {
+    const login = (id, role, wallet, extras = {}) => {
         setAuth({
             isAuthenticated: true,
-            user: { id, role, wallet },
+            user: {
+                id,
+                role,
+                wallet,
+                isReseller: Boolean(extras.isReseller),
+                referralCode: extras.referralCode || null,
+            },
             isLoading: false,
         });
     };
@@ -59,7 +75,7 @@ export const AuthProvider = ({ children }) => {
         // Update local state
         setAuth({
             isAuthenticated: false,
-            user: { id: '', role: '', wallet: 0 },
+            user: { id: '', role: '', wallet: 0, isReseller: false, referralCode: null },
             isLoading: false,
         });
     };

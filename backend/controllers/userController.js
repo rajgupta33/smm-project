@@ -4,6 +4,7 @@ const Order = require('../models/Order');
 const Transaction = require('../models/Transaction');
 const WalletLedger = require('../models/WalletLedger');
 const Service = require('../models/Service');
+const CatalogueService = require('../models/CatalogueService');
 const ManualTask = require('../models/ManualTask');
 const RefillRequest = require('../models/RefillRequest');
 const Provider = require('../models/Provider');
@@ -29,6 +30,10 @@ const {
     orderDispatchDocument,
 } = require('../services/jobDispatchService');
 const { createDripFeedSchedule } = require('../services/dripFeedService');
+const {
+    filterServicesByCatalogueAvailability,
+    loadUnavailableCatalogueIds,
+} = require('../services/catalogueVisibilityService');
 const {
     resolveOrderPricing,
     toCustomerQuote,
@@ -122,8 +127,12 @@ class UserController {
             const filteredServices = await Service.find({
                 serviceId: { $in: userServiceIds }
             }).select('-service -internalName').lean();
+            // A service the availability scan auto-hid (or an admin deactivated) must
+            // disappear here, not just fail at order time.
+            const unavailableCatalogueIds = await loadUnavailableCatalogueIds(filteredServices, CatalogueService);
+            const availableServices = filterServicesByCatalogueAvailability(filteredServices, unavailableCatalogueIds);
             const settings = await getPricingSettings();
-            const customerServices = filteredServices.map(
+            const customerServices = availableServices.map(
                 (service) => toCustomerService(service, settings)
             );
 

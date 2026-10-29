@@ -27,6 +27,8 @@ Queue producers fail quickly and leave the outbox pending. Workers use persisten
 | `provider-order-submit` | `submit-order` | 1 | Never retry an ambiguous provider submission. An interrupted claimed attempt requires reconciliation. |
 | `drip-feed-submit` | `submit-drip-feed` | 1 | Delayed per-run jobs claim one provider attempt. Only confirmed acceptance schedules the next run; ambiguity pauses the parent. |
 | `provider-sync` | `sync-provider-report` | 3 | Report-only fetch may retry transient failures with exponential backoff. Non-retryable configuration failures stop immediately. |
+| `provider-monitor` | `check-provider-balances` | 1 | Scheduled every `PROVIDER_BALANCE_CHECK_MINUTES` (default 30). Read-only balance requests; a failed scan waits for the next interval. Raises and clears admin alerts (see `docs/product-specs/admin-alerts.md`). |
+| `provider-monitor` | `check-service-availability` | 1 | Scheduled every `SERVICE_AVAILABILITY_CHECK_MINUTES` (default 60). Report-only fetch, same call as a manual provider sync; auto-applies availability transitions only, never price/spec changes. A failed scan waits for the next interval. See `docs/product-specs/service-availability.md`. |
 
 Completed jobs are retained for up to seven days/10,000 jobs and failed jobs for up to thirty days/10,000 jobs. MongoDB outbox and business-state uniqueness remain authoritative.
 
