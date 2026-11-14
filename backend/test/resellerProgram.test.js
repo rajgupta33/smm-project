@@ -234,3 +234,74 @@ test('referral attribution is stored on the customer and indexed for lookup', ()
     const indexed = User.schema.indexes().some(([fields]) => fields.referredBy === 1);
     assert.ok(indexed, 'referredBy must be indexed for per-reseller customer lookups');
 });
+
+test('adminController.createUser supports creating a reseller profile directly from the role dropdown', async () => {
+    const mongoose = require('mongoose');
+    const bcrypt = require('bcrypt');
+    const AuditLog = require('../models/AuditLog');
+    const adminController = require('../controllers/adminController');
+
+    const originalFindOne = User.findOne;
+    const originalUserCreate = User.create;
+    const originalExists = ResellerProfile.exists;
+    const originalProfileCreate = ResellerProfile.create;
+    const originalStartSession = mongoose.startSession;
+    const originalHash = bcrypt.hash;
+    const originalAuditCreate = AuditLog.create;
+
+    let createdUserDoc;
+    let createdProfileDoc;
+
+    User.findOne = async () => null;
+    User.create = async (docs) => {
+        createdUserDoc = { _id: '507f1f77bcf86cd799439011', ...docs[0] };
+        return [createdUserDoc];
+    };
+    ResellerProfile.exists = async () => null;
+    ResellerProfile.create = async (docs) => {
+        createdProfileDoc = { _id: '507f1f77bcf86cd799439022', ...docs[0] };
+        return [createdProfileDoc];
+    };
+    mongoose.startSession = async () => { throw new Error('standalone'); };
+    bcrypt.hash = async () => 'hashed-password';
+    AuditLog.create = async () => ({});
+
+    const res = {
+        statusCode: 200,
+        body: null,
+        status(code) { this.statusCode = code; return this; },
+        json(body) { this.body = body; return this; },
+    };
+
+    try {
+        await adminController.createUser({
+            payload: {
+                userId: 'ResellerOne',
+                password: 'secret123',
+                role: 'reseller',
+                services: ['SRV1', 'SRV2'],
+                commissionBps: 3000,
+                referralCode: 'PARTNER30',
+            },
+            currentUser: { _id: '507f1f77bcf86cd799439099' },
+            get: () => null,
+        }, res);
+
+        assert.equal(res.statusCode, 200);
+        assert.equal(res.body.userId, 'resellerone');
+        assert.equal(res.body.role, 'reseller');
+        assert.equal(res.body.referralCode, 'PARTNER30');
+        assert.equal(res.body.commissionBps, 3000);
+        assert.equal(createdUserDoc.role, 'user');
+        assert.deepEqual(createdUserDoc.services, ['SRV1', 'SRV2']);
+        assert.equal(createdProfileDoc.referralCode, 'PARTNER30');
+    } finally {
+        User.findOne = originalFindOne;
+        User.create = originalUserCreate;
+        ResellerProfile.exists = originalExists;
+        ResellerProfile.create = originalProfileCreate;
+        mongoose.startSession = originalStartSession;
+        bcrypt.hash = originalHash;
+        AuditLog.create = originalAuditCreate;
+    }
+});

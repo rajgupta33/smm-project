@@ -58,6 +58,18 @@ function assertBoundedInteger(value, fieldName, min, max) {
     return numeric;
 }
 
+function getResellerDefaults() {
+    try {
+        return getRuntimeConfig().reseller;
+    } catch {
+        return {
+            defaultCommissionBps: Number(process.env.RESELLER_DEFAULT_COMMISSION_BPS ?? 2500),
+            defaultHoldDays: Number(process.env.RESELLER_COMMISSION_HOLD_DAYS ?? 7),
+            defaultDailyShareCap: Number(process.env.RESELLER_DAILY_SHARE_CAP ?? 100),
+        };
+    }
+}
+
 async function recordAudit(action, actor, targetId, { before = null, after = null, metadata = null } = {}) {
     try {
         await AuditLog.create({
@@ -83,11 +95,11 @@ async function recordAudit(action, actor, targetId, { before = null, after = nul
  * failure can never leave a login without its profile.
  */
 async function createReseller(input, actor) {
-    const config = getRuntimeConfig().reseller;
+    const config = getResellerDefaults();
     const userId = normalizeUserId(input.userId);
     if (!userId) throw new ResellerError('userId is required', 'INVALID_RESELLER_FIELD');
-    if (typeof input.password !== 'string' || input.password.length < 8) {
-        throw new ResellerError('password must be at least 8 characters', 'INVALID_RESELLER_FIELD');
+    if (typeof input.password !== 'string' || input.password.length < 6) {
+        throw new ResellerError('password must be at least 6 characters', 'INVALID_RESELLER_FIELD');
     }
 
     const commissionBps = assertBoundedInteger(
@@ -169,7 +181,7 @@ async function createReseller(input, actor) {
 
 /** Promotes an existing customer account into a reseller. */
 async function convertUserToReseller(userIdInput, input, actor) {
-    const config = getRuntimeConfig().reseller;
+    const config = getResellerDefaults();
     const query = buildUserIdQuery(userIdInput);
     if (!query) throw new ResellerError('userId is required', 'INVALID_RESELLER_FIELD');
     const user = await User.findOne(query);

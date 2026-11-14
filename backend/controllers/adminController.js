@@ -6,7 +6,10 @@ const User = require('../models/User');
 const WalletLedger = require('../models/WalletLedger');
 const Provider = require('../models/Provider');
 const ResellerProfile = require('../models/ResellerProfile');
-const { findByReferralCode: findResellerByReferralCode } = require('../services/resellerService');
+const {
+    createReseller,
+    findByReferralCode: findResellerByReferralCode,
+} = require('../services/resellerService');
 require('dotenv').config();
 const { buildUserIdQuery, normalizeUserId } = require('../utils/userId');
 const { adminAdjustWallet } = require('../services/walletService');
@@ -16,18 +19,61 @@ const { getProviderAdapterForProvider } = require('../providers/providerRegistry
 class AdminController {
 
     async createUser(req, res) {
-        const { userId, password, role, services, referralCode } = req.payload;
+        const {
+            userId,
+            password,
+            role,
+            services,
+            referralCode,
+            commissionBps,
+            holdDays,
+            dailyShareCap,
+            marketingEnabled,
+            displayName,
+            contactPhone,
+            contactEmail,
+            notes,
+        } = req.payload;
 
         const normalizedUserId = normalizeUserId(userId);
 
         if (!normalizedUserId || !password || !role) {
             return res.status(400).json({ error: 'userid, password, and role are required' });
         }
-        if (!['user', 'admin'].includes(role)) {
-            return res.status(400).json({ error: 'role must be user or admin' });
+        if (!['user', 'admin', 'reseller'].includes(role)) {
+            return res.status(400).json({ error: 'role must be user, reseller, or admin' });
         }
 
         try {
+            if (role === 'reseller') {
+                const actor = {
+                    _id: req.currentUser?._id || null,
+                    requestId: req.get?.('X-Request-Id')?.slice(0, 200),
+                };
+                const { user, profile } = await createReseller({
+                    userId: normalizedUserId,
+                    password,
+                    services,
+                    referralCode,
+                    commissionBps,
+                    holdDays,
+                    dailyShareCap,
+                    marketingEnabled,
+                    displayName,
+                    contactPhone,
+                    contactEmail,
+                    notes,
+                }, actor);
+
+                return res.status(200).json({
+                    userId: user.userId,
+                    role: 'reseller',
+                    resellerProfileId: profile._id,
+                    referralCode: profile.referralCode,
+                    commissionBps: profile.commissionBps,
+                });
+            }
+
             // Optional referral attribution, set once at creation. Only an admin
             // can change it afterwards, through the reseller reassign endpoint.
             let referrer = null;
@@ -67,6 +113,12 @@ class AdminController {
                 referredBy: referrer?.referralCode || null,
             });
         } catch (err) {
+            if (err.statusCode) {
+                return res.status(err.statusCode).json({ error: err.message, code: err.code });
+            }
+            if (err.code === 11000) {
+                return res.status(409).json({ error: 'That user ID is already taken', code: 'USER_ID_TAKEN' });
+            }
             console.log(err)
             res.status(500).json({ error: 'Error creating user' });
         }

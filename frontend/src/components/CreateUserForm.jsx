@@ -41,6 +41,7 @@ const CreateUserForm = () => {
   // commission for that reseller. Set once here; changing it later needs the
   // audited reassign action on the Resellers page.
   const [referralCode, setReferralCode] = useState('');
+  const [commissionPercent, setCommissionPercent] = useState('25');
   const [services, setServices] = useState([]); // List of all available services
   const [selectedServices, setSelectedServices] = useState([]); // List of serviceIds of selected services
   const [loading, setLoading] = useState(false); // Loading state for form submission
@@ -190,39 +191,70 @@ const CreateUserForm = () => {
       return;
     }
 
+    let commissionBps;
+    if (role === 'reseller') {
+      const numericCommission = Number(commissionPercent);
+      if (!Number.isFinite(numericCommission) || numericCommission < 0 || numericCommission > 100) {
+        toast.error('Commission must be between 0 and 100 percent', {
+          icon: <AlertCircle className="text-state-danger" />,
+          theme: "dark",
+          className: "bg-surface border-line"
+        });
+        return;
+      }
+      commissionBps = Math.round(numericCommission * 100);
+    }
+
     try {
       setLoading(true); // Indicate submission is in progress
+      const submittedPassword = password;
 
       // Send the request to the backend
-    const response = await serviceApi.createUser({
-      userId,
-      password,
-      role,
-      services: selectedServices,
-      ...(role === 'user' && referralCode.trim() ? { referralCode: referralCode.trim() } : {})
-    });
+      const response = await serviceApi.createUser({
+        userId,
+        password,
+        role,
+        services: selectedServices,
+        ...(role === 'user' && referralCode.trim() ? { referralCode: referralCode.trim() } : {}),
+        ...(role === 'reseller' ? {
+          commissionBps,
+          ...(referralCode.trim() ? { referralCode: referralCode.trim() } : {}),
+        } : {}),
+      });
 
       setLoading(false); // Clear loading immediately after response
 
       if (response.success) {
         // Show success toast immediately
-        toast.success('User created successfully!', {
-          icon: <Check className="text-state-success" />,
-          theme: "dark",
-          className: "bg-surface border-line"
-        });
+        toast.success(
+          role === 'reseller'
+            ? `Reseller created! Referral code: ${response.data.referralCode}`
+            : 'User created successfully!',
+          {
+            icon: <Check className="text-state-success" />,
+            theme: "dark",
+            className: "bg-surface border-line"
+          }
+        );
 
         // Show info toast with user details, delayed to allow success toast to be seen
         setTimeout(() => {
           toast.info(
             <div>
-              <div className="font-semibold mb-1">User Created</div>
+              <div className="font-semibold mb-1">
+                {role === 'reseller' ? 'Reseller Created' : 'User Created'}
+              </div>
               <div>
                 <span className="text-ink-muted">User ID:</span> {response.data.userId}
               </div>
               <div>
-                <span className="text-ink-muted">Password:</span> {response.data.password}
+                <span className="text-ink-muted">Password:</span> {response.data.password || submittedPassword}
               </div>
+              {response.data.referralCode && (
+                <div>
+                  <span className="text-ink-muted">Referral Code:</span> {response.data.referralCode}
+                </div>
+              )}
             </div>,
             {
               icon: <Info className="text-blue-400" />,
@@ -240,6 +272,7 @@ const CreateUserForm = () => {
           setConfirmPassword('');
           setRole('user');
           setReferralCode('');
+          setCommissionPercent('25');
           setSelectedServices([]);
         }, 500); // Small delay before clearing form/redirecting
       } else {
@@ -337,6 +370,7 @@ const CreateUserForm = () => {
           className="w-full p-4 rounded-lg bg-surface border border-line focus:border-line focus:bg-surface appearance-none cursor-pointer"
         >
           <option value="user">Regular User</option>
+          <option value="reseller">Reseller</option>
           <option value="admin">Administrator</option>
         </select>
         {/* Custom arrow for select input */}
@@ -360,6 +394,43 @@ const CreateUserForm = () => {
             placeholder="ABC1234"
             maxLength={24}
           />
+        </div>
+      )}
+
+      {/* Reseller profile configuration */}
+      {role === 'reseller' && (
+        <div className="grid gap-4">
+          <div className="relative">
+            <label htmlFor="commissionPercent" className="absolute left-3 top-3 text-sm text-ink-muted pointer-events-none transform -translate-y-2 scale-90 origin-left">
+              Commission (% of order profit)
+            </label>
+            <input
+              id="commissionPercent"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={commissionPercent}
+              onChange={(e) => setCommissionPercent(e.target.value)}
+              className="w-full p-4 rounded-lg bg-surface border border-line focus:border-line focus:bg-surface text-ink placeholder:text-transparent"
+              placeholder="25"
+              required
+            />
+          </div>
+          <div className="relative">
+            <label htmlFor="resellerReferralCode" className="absolute left-3 top-3 text-sm text-ink-muted pointer-events-none transform -translate-y-2 scale-90 origin-left">
+              Custom referral code (optional, blank = auto-generated)
+            </label>
+            <input
+              id="resellerReferralCode"
+              type="text"
+              value={referralCode}
+              onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+              className="w-full p-4 rounded-lg bg-surface border border-line focus:border-line focus:bg-surface text-ink placeholder:text-transparent font-mono uppercase"
+              placeholder="ABC1234"
+              maxLength={24}
+            />
+          </div>
         </div>
       )}
 
