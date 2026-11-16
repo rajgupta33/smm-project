@@ -48,6 +48,9 @@ test('unusable phone cells normalise to an empty string', () => {
     assert.equal(normalizePhone('', '91'), '');
     assert.equal(normalizePhone('not a number', '91'), '');
     assert.equal(normalizePhone(null, '91'), '');
+    assert.equal(normalizePhone('9.72E+11', '91'), '');
+    assert.equal(normalizePhone('9.71585E+11', '91'), '');
+    assert.equal(normalizePhone('###', '91'), '');
 });
 
 // --- send link ---------------------------------------------------------------

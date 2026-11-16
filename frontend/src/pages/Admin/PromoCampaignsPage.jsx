@@ -38,7 +38,10 @@ const BLANK_FORM = {
 };
 
 function errorMessage(error, fallback) {
-  return error?.response?.data?.error || error?.message || fallback;
+  if (error?.response?.status === 401) {
+    return 'Your admin login session expired (1 hour limit). Please refresh or log in again.';
+  }
+  return error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback;
 }
 
 export default function PromoCampaignsPage() {

@@ -45,7 +45,11 @@ function assertColumns(input = {}) {
  * default country code so wa.me links resolve.
  */
 function normalizePhone(raw, defaultCountryCode = '91') {
-    const digits = String(raw || '').replace(/\D+/g, '');
+    const text = String(raw || '').trim();
+    // Scientific notation (e.g. "9.72E+11" from Google Sheets display values)
+    // or narrow-column "###" has lost digits and must not be treated as a phone number.
+    if (!text || /\d\s*e[+-]?\d+/i.test(text) || /^#+$/.test(text)) return '';
+    const digits = text.replace(/\D+/g, '');
     if (!digits) return '';
     if (digits.length <= 10) return `${defaultCountryCode}${digits}`.slice(0, 15);
     return digits.slice(0, 15);
