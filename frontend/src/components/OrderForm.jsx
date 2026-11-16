@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertCircle, PackageOpen, ShieldCheck, Wallet } from 'lucide-react';
 import { serviceApi } from '../service/api';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { toast } from 'react-toastify';
 import { useAuth } from '../context/Authcontext';
 
 /** Common order sizes offered as one-tap chips, filtered to the service range. */
@@ -389,16 +388,6 @@ function OrderForm() {
 
   return (
     <div className="w-full">
-      <ToastContainer
-        position="top-center"
-        autoClose={4000}
-        newestOnTop
-        closeOnClick
-        pauseOnFocusLoss={false}
-        draggable
-        theme="light"
-      />
-
       <form onSubmit={handleSubmit} className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6">
         <div className="space-y-5">
           <section className="card card-p space-y-5">

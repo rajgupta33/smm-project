@@ -1,6 +1,8 @@
 import './index.css'
+import 'react-toastify/dist/ReactToastify.css'
 import { lazy, Suspense } from 'react'
 import { BrowserRouter,Route,Routes } from 'react-router-dom'
+import { ToastContainer } from 'react-toastify'
 import Home from './pages/common/Home'
 import Order from './pages/user/Orders'
 import LoginPage from './pages/common/Login'
@@ -41,6 +43,14 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <ToastContainer
+          position="top-right"
+          autoClose={4500}
+          newestOnTop
+          closeOnClick
+          pauseOnFocusLoss={false}
+          theme="light"
+        />
         <WhatsAppButton />
         <Routes>
           <Route path="/login" element={<LoginPage/>} />

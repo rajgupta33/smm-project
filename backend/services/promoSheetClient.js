@@ -122,6 +122,20 @@ function validateScriptUrl(rawUrl) {
     if (!['https:', 'http:'].includes(parsed.protocol)) {
         throw new PromoSheetError('Apps Script Web App URL must use https or http', 'INVALID_SCRIPT_URL', 400);
     }
+    if (/script\.google\.com/i.test(parsed.hostname) && /\/dev\/?$/i.test(parsed.pathname)) {
+        throw new PromoSheetError(
+            'Use the deployed Web App URL ending in /exec (not the /dev test URL).',
+            'INVALID_SCRIPT_URL',
+            400
+        );
+    }
+    if (/script\.google\.com/i.test(parsed.hostname) && !/\/exec\/?$/i.test(parsed.pathname)) {
+        throw new PromoSheetError(
+            'Apps Script Web App URL should end in /exec (from Deploy → Manage deployments).',
+            'INVALID_SCRIPT_URL',
+            400
+        );
+    }
     return parsed.toString();
 }
 
@@ -254,6 +268,21 @@ async function callScript(action, params = {}, overrides = {}) {
             validateStatus: (status) => status >= 200 && status < 400,
         });
     } catch (error) {
+        const status = error.response?.status;
+        if (status === 404) {
+            throw new PromoSheetError(
+                'Apps Script returned 404 (Not Found). Double-check the full /exec Web App URL from Deploy → Manage deployments in script.google.com.',
+                'PROMO_SHEET_NOT_FOUND',
+                502
+            );
+        }
+        if (status === 401 || status === 403) {
+            throw new PromoSheetError(
+                `Apps Script denied access (HTTP ${status}). Re-deploy Code.gs as a Web App with "Execute as: Me" and "Who has access: Anyone".`,
+                'PROMO_SHEET_FORBIDDEN',
+                502
+            );
+        }
         const timedOut = error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT';
         throw new PromoSheetError(
             `Google Sheet request failed: ${error.message}`,
@@ -264,6 +293,13 @@ async function callScript(action, params = {}, overrides = {}) {
 
     const body = response.data;
     if (!body || typeof body !== 'object') {
+        if (typeof body === 'string' && /<html|<!doctype|ServiceLogin|accounts\.google/i.test(body)) {
+            throw new PromoSheetError(
+                'Apps Script returned an HTML/sign-in page instead of JSON. Make sure the Web App is deployed with "Execute as: Me" and "Who has access: Anyone".',
+                'PROMO_SHEET_HTML_RESPONSE',
+                502
+            );
+        }
         throw new PromoSheetError('Google Sheet returned an unreadable response', 'PROMO_SHEET_MALFORMED');
     }
     if (body.ok === false) {

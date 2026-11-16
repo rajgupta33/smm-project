@@ -49,6 +49,7 @@ export default function PromoCampaignsPage() {
   const [sheetSettings, setSheetSettings] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsForm, setSettingsForm] = useState({ appsScriptUrl: '', secretKey: '' });
+  const [settingsFeedback, setSettingsFeedback] = useState(null);
   const [testingSettings, setTestingSettings] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
 
@@ -109,15 +110,26 @@ export default function PromoCampaignsPage() {
   }, [searchParams, setSearchParams]);
 
   const handleTestSettings = async () => {
+    const url = settingsForm.appsScriptUrl.trim();
+    if (!url) {
+      const msg = 'Enter the Apps Script Web App URL first.';
+      setSettingsFeedback({ tone: 'danger', message: msg });
+      toast.error(msg);
+      return;
+    }
     setTestingSettings(true);
+    setSettingsFeedback({ tone: 'info', message: 'Testing Apps Script connection…' });
     try {
       await promoCampaignApi.testSettings({
-        appsScriptUrl: settingsForm.appsScriptUrl.trim(),
+        appsScriptUrl: url,
         secretKey: settingsForm.secretKey.trim(),
       });
+      setSettingsFeedback({ tone: 'success', message: 'Connected! Your Apps Script URL and secret key work.' });
       toast.success('Apps Script connection succeeded');
     } catch (error) {
-      toast.error(errorMessage(error, 'Connection test failed'));
+      const msg = errorMessage(error, 'Connection test failed');
+      setSettingsFeedback({ tone: 'danger', message: msg });
+      toast.error(msg);
     } finally {
       setTestingSettings(false);
     }
@@ -126,6 +138,7 @@ export default function PromoCampaignsPage() {
   const handleSaveSettings = async (event) => {
     event.preventDefault();
     setSavingSettings(true);
+    setSettingsFeedback(null);
     try {
       const saved = await promoCampaignApi.updateSettings({
         appsScriptUrl: settingsForm.appsScriptUrl.trim(),
@@ -134,11 +147,14 @@ export default function PromoCampaignsPage() {
       setSheetSettings(saved);
       setSheetConfigured(Boolean(saved.configured));
       setSettingsForm({ appsScriptUrl: saved.appsScriptUrl || '', secretKey: '' });
+      setSettingsFeedback({ tone: 'success', message: 'Google Apps Script settings saved.' });
       toast.success('Google Apps Script settings saved');
       setShowSettings(false);
       load();
     } catch (error) {
-      toast.error(errorMessage(error, 'Could not save connection settings'));
+      const msg = errorMessage(error, 'Could not save connection settings');
+      setSettingsFeedback({ tone: 'danger', message: msg });
+      toast.error(msg);
     } finally {
       setSavingSettings(false);
     }
@@ -472,6 +488,11 @@ export default function PromoCampaignsPage() {
                   Close
                 </button>
               </div>
+              {settingsFeedback && (
+                <div className="sm:col-span-2">
+                  <Notice tone={settingsFeedback.tone}>{settingsFeedback.message}</Notice>
+                </div>
+              )}
             </form>
           </Card>
         )}

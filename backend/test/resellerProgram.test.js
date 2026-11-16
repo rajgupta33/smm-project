@@ -410,3 +410,30 @@ test('updateCampaign rejects an endRow before the existing startRow', async () =
         PromoCampaign.findById = originalFindById;
     }
 });
+
+test('Apps Script diagnostics reject /dev URLs and explain 404 or HTML responses', async () => {
+    await assert.rejects(
+        () => promoSheetClient.testConnection(
+            { appsScriptUrl: 'https://script.google.com/macros/s/abc/dev', secretKey: 'k' },
+            { existingSettings: null }
+        ),
+        (error) => error.code === 'INVALID_SCRIPT_URL'
+    );
+
+    const err404 = Object.assign(new Error('Request failed with status code 404'), { response: { status: 404 } });
+    await assert.rejects(
+        () => promoSheetClient.ping({
+            config: { appsScriptUrl: 'https://script.google.com/macros/s/abc/exec', secretKey: 'k', timeoutMs: 1000 },
+            httpClient: { get: async () => { throw err404; } },
+        }),
+        (error) => error.code === 'PROMO_SHEET_NOT_FOUND'
+    );
+
+    await assert.rejects(
+        () => promoSheetClient.ping({
+            config: { appsScriptUrl: 'https://script.google.com/macros/s/abc/exec', secretKey: 'k', timeoutMs: 1000 },
+            httpClient: { get: async () => ({ data: '<!DOCTYPE html><html>ServiceLogin</html>' }) },
+        }),
+        (error) => error.code === 'PROMO_SHEET_HTML_RESPONSE'
+    );
+});
