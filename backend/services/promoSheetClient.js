@@ -306,7 +306,9 @@ async function callScript(action, params = {}, overrides = {}) {
         const message = String(body.error || 'Unknown Apps Script error');
         const invalidKey = /invalid key|SECRET_KEY/i.test(message);
         throw new PromoSheetError(
-            `Google Sheet rejected the request: ${message}`,
+            invalidKey
+                ? `Google Sheet rejected the secret key (${message}). Make sure the Secret key matches SECRET_KEY in Code.gs — if you edited SECRET_KEY after deploying, click Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy in Google Apps Script.`
+                : `Google Sheet rejected the request: ${message}`,
             invalidKey ? 'PROMO_SHEET_UNAUTHORIZED' : 'PROMO_SHEET_REJECTED',
             invalidKey ? 503 : 502
         );

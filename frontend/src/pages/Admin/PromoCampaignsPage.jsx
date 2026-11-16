@@ -111,6 +111,7 @@ export default function PromoCampaignsPage() {
 
   const handleTestSettings = async () => {
     const url = settingsForm.appsScriptUrl.trim();
+    const key = settingsForm.secretKey.trim();
     if (!url) {
       const msg = 'Enter the Apps Script Web App URL first.';
       setSettingsFeedback({ tone: 'danger', message: msg });
@@ -122,10 +123,21 @@ export default function PromoCampaignsPage() {
     try {
       await promoCampaignApi.testSettings({
         appsScriptUrl: url,
-        secretKey: settingsForm.secretKey.trim(),
+        secretKey: key,
       });
-      setSettingsFeedback({ tone: 'success', message: 'Connected! Your Apps Script URL and secret key work.' });
-      toast.success('Apps Script connection succeeded');
+      const saved = await promoCampaignApi.updateSettings({
+        appsScriptUrl: url,
+        secretKey: key,
+      });
+      setSheetSettings(saved);
+      setSheetConfigured(Boolean(saved.configured));
+      setSettingsForm({ appsScriptUrl: saved.appsScriptUrl || url, secretKey: '' });
+      setSettingsFeedback({
+        tone: 'success',
+        message: 'Connected & saved! Your Google Apps Script bridge is ready to use.',
+      });
+      toast.success('Apps Script connected and saved');
+      load();
     } catch (error) {
       const msg = errorMessage(error, 'Connection test failed');
       setSettingsFeedback({ tone: 'danger', message: msg });
@@ -137,19 +149,27 @@ export default function PromoCampaignsPage() {
 
   const handleSaveSettings = async (event) => {
     event.preventDefault();
+    const url = settingsForm.appsScriptUrl.trim();
+    const key = settingsForm.secretKey.trim();
     setSavingSettings(true);
-    setSettingsFeedback(null);
+    setSettingsFeedback({ tone: 'info', message: 'Verifying and saving connection…' });
     try {
+      await promoCampaignApi.testSettings({
+        appsScriptUrl: url,
+        secretKey: key,
+      });
       const saved = await promoCampaignApi.updateSettings({
-        appsScriptUrl: settingsForm.appsScriptUrl.trim(),
-        secretKey: settingsForm.secretKey.trim(),
+        appsScriptUrl: url,
+        secretKey: key,
       });
       setSheetSettings(saved);
       setSheetConfigured(Boolean(saved.configured));
-      setSettingsForm({ appsScriptUrl: saved.appsScriptUrl || '', secretKey: '' });
-      setSettingsFeedback({ tone: 'success', message: 'Google Apps Script settings saved.' });
-      toast.success('Google Apps Script settings saved');
-      setShowSettings(false);
+      setSettingsForm({ appsScriptUrl: saved.appsScriptUrl || url, secretKey: '' });
+      setSettingsFeedback({
+        tone: 'success',
+        message: 'Connected & saved! Your Google Apps Script bridge is ready to use.',
+      });
+      toast.success('Google Apps Script settings verified and saved');
       load();
     } catch (error) {
       const msg = errorMessage(error, 'Could not save connection settings');
@@ -167,6 +187,14 @@ export default function PromoCampaignsPage() {
     }
     setLoadingTabs(true);
     try {
+      if (!sheetConfigured && settingsForm.appsScriptUrl.trim()) {
+        const saved = await promoCampaignApi.updateSettings({
+          appsScriptUrl: settingsForm.appsScriptUrl.trim(),
+          secretKey: settingsForm.secretKey.trim(),
+        });
+        setSheetSettings(saved);
+        setSheetConfigured(Boolean(saved.configured));
+      }
       const data = await promoCampaignApi.sheetTabs(form.sheetUrl.trim());
       setTabs(data.tabs || []);
       setForm((prev) => ({
