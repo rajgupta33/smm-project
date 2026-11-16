@@ -210,6 +210,15 @@ export const promoCampaignApi = {
   list: async (params = {}) => (
     await axios.get(`${API_BASE_URL}/admin/promoCampaigns`, { params })
   ).data,
+  getSettings: async () => (
+    await axios.get(`${API_BASE_URL}/admin/promoCampaigns/settings`)
+  ).data.settings,
+  updateSettings: async (data) => (
+    await axios.put(`${API_BASE_URL}/admin/promoCampaigns/settings`, data)
+  ).data.settings,
+  testSettings: async (data = {}) => (
+    await axios.post(`${API_BASE_URL}/admin/promoCampaigns/settings/test`, data)
+  ).data,
   get: async (campaignId) => (
     await axios.get(`${API_BASE_URL}/admin/promoCampaigns/${encodeURIComponent(campaignId)}`)
   ).data,

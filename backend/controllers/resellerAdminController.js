@@ -148,17 +148,48 @@ class ResellerAdminController {
 
     async listCampaigns(req, res) {
         try {
-            const result = await promoCampaignService.listCampaigns({
-                status: req.query.status,
-                limit: req.query.limit,
-                skip: req.query.skip,
-            });
+            const [result, sheetSettings] = await Promise.all([
+                promoCampaignService.listCampaigns({
+                    status: req.query.status,
+                    limit: req.query.limit,
+                    skip: req.query.skip,
+                }),
+                promoSheetClient.getAdminSettingsSummary(),
+            ]);
             return res.status(200).json({
                 ...result,
-                sheetConfigured: promoSheetClient.isConfigured(),
+                sheetConfigured: sheetSettings.configured,
+                sheetSettings,
             });
         } catch (error) {
             return sendError(res, error, 'Failed to list campaigns');
+        }
+    }
+
+    async getSheetSettings(req, res) {
+        try {
+            const settings = await promoSheetClient.getAdminSettingsSummary();
+            return res.status(200).json({ settings });
+        } catch (error) {
+            return sendError(res, error, 'Failed to load sheet settings');
+        }
+    }
+
+    async updateSheetSettings(req, res) {
+        try {
+            const settings = await promoSheetClient.saveAdminSettings(req.body || {}, actorFor(req));
+            return res.status(200).json({ settings });
+        } catch (error) {
+            return sendError(res, error, 'Failed to save sheet settings');
+        }
+    }
+
+    async testSheetSettings(req, res) {
+        try {
+            const result = await promoSheetClient.testConnection(req.body || {});
+            return res.status(200).json(result);
+        } catch (error) {
+            return sendError(res, error, 'Google Apps Script connection test failed');
         }
     }
 
@@ -209,6 +240,7 @@ class ResellerAdminController {
     async getCampaign(req, res) {
         try {
             const campaign = await PromoCampaign.findById(req.params.campaignId)
+                .select('+sheetUrl')
                 .populate('assignedResellerIds', 'referralCode displayName')
                 .lean();
             if (!campaign) return res.status(404).json({ error: 'Campaign not found' });

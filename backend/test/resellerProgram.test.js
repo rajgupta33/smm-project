@@ -305,3 +305,108 @@ test('adminController.createUser supports creating a reseller profile directly f
         AuditLog.create = originalAuditCreate;
     }
 });
+
+// --- Apps Script panel settings ----------------------------------------------
+
+test('saveAdminSettings stores URL and secret key without exposing secretKey in the summary', async () => {
+    const PromoSheetSettings = require('../models/PromoSheetSettings');
+    assert.equal(PromoSheetSettings.schema.path('secretKey').options.select, false);
+
+    let persisted;
+    let audited;
+    const SettingsModel = {
+        findOneAndUpdate: async (_filter, update) => {
+            persisted = { ...update.$set, updatedAt: new Date('2026-11-16T00:00:00Z') };
+            return persisted;
+        },
+    };
+    const AuditLogModel = {
+        create: async (entry) => {
+            audited = entry;
+            return entry;
+        },
+    };
+
+    const summary = await promoSheetClient.saveAdminSettings(
+        { appsScriptUrl: 'https://script.google.com/macros/s/abc123/exec', secretKey: 'top-secret' },
+        { _id: '507f1f77bcf86cd799439099', requestId: 'req-1' },
+        { existingSettings: null, SettingsModel, AuditLogModel }
+    );
+
+    assert.equal(summary.appsScriptUrl, 'https://script.google.com/macros/s/abc123/exec');
+    assert.equal(summary.hasSecretKey, true);
+    assert.equal(summary.configured, true);
+    assert.equal(summary.source, 'panel');
+    assert.equal(summary.secretKey, undefined);
+    assert.equal(persisted.secretKey, 'top-secret');
+    assert.equal(audited.action, 'PROMO_SHEET_SETTINGS_UPDATED');
+    assert.equal(audited.after.secretUpdated, true);
+});
+
+test('saveAdminSettings preserves existing secretKey when left blank on URL update', async () => {
+    let persisted;
+    const summary = await promoSheetClient.saveAdminSettings(
+        { appsScriptUrl: 'https://script.google.com/macros/s/newurl/exec', secretKey: '' },
+        { _id: '507f1f77bcf86cd799439099' },
+        {
+            existingSettings: {
+                appsScriptUrl: 'https://script.google.com/macros/s/oldurl/exec',
+                secretKey: 'kept-secret',
+                timeoutMs: 20000,
+            },
+            SettingsModel: {
+                findOneAndUpdate: async (_f, update) => {
+                    persisted = update.$set;
+                    return { ...persisted, updatedAt: new Date() };
+                },
+            },
+            AuditLogModel: { create: async () => ({}) },
+        }
+    );
+
+    assert.equal(persisted.secretKey, 'kept-secret');
+    assert.equal(summary.hasSecretKey, true);
+});
+
+test('testConnection pings the Apps Script using form values or saved credentials', async () => {
+    let calledUrl;
+    let calledParams;
+    const httpClient = {
+        get: async (url, options) => {
+            calledUrl = url;
+            calledParams = options.params;
+            return { data: { ok: true } };
+        },
+    };
+
+    const result = await promoSheetClient.testConnection(
+        { appsScriptUrl: 'https://script.google.com/macros/s/test/exec', secretKey: '' },
+        {
+            existingSettings: {
+                appsScriptUrl: 'https://script.google.com/macros/s/saved/exec',
+                secretKey: 'saved-key',
+                timeoutMs: 15000,
+            },
+            httpClient,
+        }
+    );
+
+    assert.deepEqual(result, { ok: true });
+    assert.equal(calledUrl, 'https://script.google.com/macros/s/test/exec');
+    assert.equal(calledParams.action, 'ping');
+    assert.equal(calledParams.key, 'saved-key');
+});
+
+test('updateCampaign rejects an endRow before the existing startRow', async () => {
+    const { updateCampaign } = require('../services/promoCampaignService');
+    const originalFindById = PromoCampaign.findById;
+    PromoCampaign.findById = async () => ({ _id: '507f1f77bcf86cd799439033', startRow: 10, endRow: null });
+    try {
+        await assert.rejects(
+            () => updateCampaign('507f1f77bcf86cd799439033', { endRow: 5 }, null),
+            (error) => error.code === 'INVALID_CAMPAIGN_FIELD'
+        );
+    } finally {
+        PromoCampaign.findById = originalFindById;
+    }
+});

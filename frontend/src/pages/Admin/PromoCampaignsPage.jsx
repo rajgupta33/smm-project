@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { MessageCircle, Plus, RefreshCw, FileSpreadsheet } from 'lucide-react';
+import {
+  MessageCircle, Plus, RefreshCw, FileSpreadsheet, Settings2, Pencil, Eye, CheckCircle2,
+} from 'lucide-react';
 import ResponsiveNavbar from '../../components/NavBar';
 import DataTable from '../../components/ui/DataTable';
 import {
@@ -9,11 +12,10 @@ import {
 import { promoCampaignApi, resellerAdminApi } from '../../service/api';
 
 /**
- * Admin screen for the WhatsApp promo sheets.
+ * Admin screen for the WhatsApp promo sheets and Google Apps Script bridge.
  *
- * The Google Sheet is assigned here and only here: resellers never see the
- * link, the tab or the Apps Script key. Sync copies the rows into the lead pool
- * so a reseller's click can claim exactly one number.
+ * The Google Sheet and Apps Script credentials live here and on the backend
+ * only: resellers never see the sheet URL, tab name, or secret key.
  */
 
 const BLANK_FORM = {
@@ -32,6 +34,7 @@ const BLANK_FORM = {
   claimExpiryMinutes: '30',
   releaseAfterDays: '30',
   maxContactsPerNumber: '2',
+  dailyShareCapOverride: '',
 };
 
 function errorMessage(error, fallback) {
@@ -39,16 +42,29 @@ function errorMessage(error, fallback) {
 }
 
 export default function PromoCampaignsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [campaigns, setCampaigns] = useState([]);
   const [resellers, setResellers] = useState([]);
   const [sheetConfigured, setSheetConfigured] = useState(true);
+  const [sheetSettings, setSheetSettings] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({ appsScriptUrl: '', secretKey: '' });
+  const [testingSettings, setTestingSettings] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(BLANK_FORM);
   const [tabs, setTabs] = useState([]);
   const [loadingTabs, setLoadingTabs] = useState(false);
   const [saving, setSaving] = useState(false);
   const [syncingId, setSyncingId] = useState(null);
+
+  const [detailCampaign, setDetailCampaign] = useState(null);
+  const [detailLeads, setDetailLeads] = useState([]);
+  const [detailStateFilter, setDetailStateFilter] = useState('');
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,7 +74,16 @@ export default function PromoCampaignsPage() {
         resellerAdminApi.list({ status: 'ACTIVE', limit: 200 }),
       ]);
       setCampaigns(campaignData.campaigns || []);
-      setSheetConfigured(campaignData.sheetConfigured !== false);
+      const configured = campaignData.sheetConfigured !== false;
+      setSheetConfigured(configured);
+      if (!configured) setShowSettings(true);
+      if (campaignData.sheetSettings) {
+        setSheetSettings(campaignData.sheetSettings);
+        setSettingsForm((prev) => ({
+          appsScriptUrl: campaignData.sheetSettings.appsScriptUrl || prev.appsScriptUrl || '',
+          secretKey: '',
+        }));
+      }
       setResellers(resellerData.resellers || []);
     } catch (error) {
       toast.error(errorMessage(error, 'Could not load campaigns'));
@@ -69,6 +94,56 @@ export default function PromoCampaignsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    const preselectResellerId = searchParams.get('resellerId');
+    if (preselectResellerId) {
+      setEditingId(null);
+      setForm({
+        ...BLANK_FORM,
+        assignToAllResellers: false,
+        assignedResellerIds: [preselectResellerId],
+      });
+      setShowForm(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  const handleTestSettings = async () => {
+    setTestingSettings(true);
+    try {
+      await promoCampaignApi.testSettings({
+        appsScriptUrl: settingsForm.appsScriptUrl.trim(),
+        secretKey: settingsForm.secretKey.trim(),
+      });
+      toast.success('Apps Script connection succeeded');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Connection test failed'));
+    } finally {
+      setTestingSettings(false);
+    }
+  };
+
+  const handleSaveSettings = async (event) => {
+    event.preventDefault();
+    setSavingSettings(true);
+    try {
+      const saved = await promoCampaignApi.updateSettings({
+        appsScriptUrl: settingsForm.appsScriptUrl.trim(),
+        secretKey: settingsForm.secretKey.trim(),
+      });
+      setSheetSettings(saved);
+      setSheetConfigured(Boolean(saved.configured));
+      setSettingsForm({ appsScriptUrl: saved.appsScriptUrl || '', secretKey: '' });
+      toast.success('Google Apps Script settings saved');
+      setShowSettings(false);
+      load();
+    } catch (error) {
+      toast.error(errorMessage(error, 'Could not save connection settings'));
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
   const handleLoadTabs = async () => {
     if (!form.sheetUrl.trim()) {
       toast.error('Paste the Google Sheet link first');
@@ -78,7 +153,11 @@ export default function PromoCampaignsPage() {
     try {
       const data = await promoCampaignApi.sheetTabs(form.sheetUrl.trim());
       setTabs(data.tabs || []);
-      if (data.tabs?.length && !form.tab) setForm((prev) => ({ ...prev, tab: data.tabs[0] }));
+      setForm((prev) => ({
+        ...prev,
+        tab: data.tabs?.length && !data.tabs.includes(prev.tab) ? data.tabs[0] : (prev.tab || data.tabs?.[0] || ''),
+        name: prev.name.trim() ? prev.name : (data.title || prev.name),
+      }));
       toast.success(`Read "${data.title}"`);
     } catch (error) {
       toast.error(errorMessage(error, 'Could not read the sheet'));
@@ -87,26 +166,82 @@ export default function PromoCampaignsPage() {
     }
   };
 
-  const handleCreate = async (event) => {
+  const openNewForm = () => {
+    setEditingId(null);
+    setForm(BLANK_FORM);
+    setTabs([]);
+    setShowForm((open) => (editingId ? true : !open));
+  };
+
+  const handleEdit = async (campaignId) => {
+    try {
+      const detail = await promoCampaignApi.get(campaignId);
+      const c = detail.campaign;
+      setEditingId(c._id);
+      setTabs(c.tab ? [c.tab] : []);
+      setForm({
+        name: c.name || '',
+        description: c.description || '',
+        sheetUrl: c.sheetUrl || '',
+        tab: c.tab || '',
+        columns: {
+          name: c.columns?.name || 'A',
+          number: c.columns?.number || 'B',
+          link: c.columns?.link || 'C',
+          status: c.columns?.status || 'D',
+        },
+        startRow: String(c.startRow ?? 2),
+        endRow: c.endRow == null ? '' : String(c.endRow),
+        messageTemplate: c.messageTemplate || '',
+        defaultCountryCode: c.defaultCountryCode || '91',
+        status: c.status || 'ACTIVE',
+        assignToAllResellers: Boolean(c.assignToAllResellers),
+        assignedResellerIds: (c.assignedResellerIds || []).map((r) => (typeof r === 'string' ? r : r._id)),
+        claimExpiryMinutes: String(c.claimExpiryMinutes ?? 30),
+        releaseAfterDays: String(c.releaseAfterDays ?? 30),
+        maxContactsPerNumber: String(c.maxContactsPerNumber ?? 2),
+        dailyShareCapOverride: c.dailyShareCapOverride == null ? '' : String(c.dailyShareCapOverride),
+      });
+      setShowForm(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      toast.error(errorMessage(error, 'Could not load campaign details'));
+    }
+  };
+
+  const handleSaveCampaign = async (event) => {
     event.preventDefault();
     setSaving(true);
+    const payload = {
+      ...form,
+      startRow: Number(form.startRow),
+      endRow: form.endRow === '' ? null : Number(form.endRow),
+      claimExpiryMinutes: Number(form.claimExpiryMinutes),
+      releaseAfterDays: Number(form.releaseAfterDays),
+      maxContactsPerNumber: Number(form.maxContactsPerNumber),
+      dailyShareCapOverride: form.dailyShareCapOverride === '' ? null : Number(form.dailyShareCapOverride),
+    };
     try {
-      const { campaignId } = await promoCampaignApi.create({
-        ...form,
-        startRow: Number(form.startRow),
-        endRow: form.endRow === '' ? null : Number(form.endRow),
-        claimExpiryMinutes: Number(form.claimExpiryMinutes),
-        releaseAfterDays: Number(form.releaseAfterDays),
-        maxContactsPerNumber: Number(form.maxContactsPerNumber),
-      });
-      toast.success('Campaign created. Syncing the sheet…');
-      setForm(BLANK_FORM);
-      setTabs([]);
-      setShowForm(false);
-      await handleSync(campaignId);
+      if (editingId) {
+        await promoCampaignApi.update(editingId, payload);
+        toast.success('Campaign updated. Syncing the sheet…');
+        const updatedId = editingId;
+        setEditingId(null);
+        setForm(BLANK_FORM);
+        setTabs([]);
+        setShowForm(false);
+        await handleSync(updatedId);
+      } else {
+        const { campaignId } = await promoCampaignApi.create(payload);
+        toast.success('Campaign created. Syncing the sheet…');
+        setForm(BLANK_FORM);
+        setTabs([]);
+        setShowForm(false);
+        await handleSync(campaignId);
+      }
       load();
     } catch (error) {
-      toast.error(errorMessage(error, 'Could not create the campaign'));
+      toast.error(errorMessage(error, editingId ? 'Could not update the campaign' : 'Could not create the campaign'));
     } finally {
       setSaving(false);
     }
@@ -123,6 +258,9 @@ export default function PromoCampaignsPage() {
         + '.'
       );
       load();
+      if (detailCampaign?.campaign?._id === campaignId) {
+        loadDetail(campaignId, detailStateFilter);
+      }
     } catch (error) {
       toast.error(errorMessage(error, 'Sync failed'));
     } finally {
@@ -137,6 +275,22 @@ export default function PromoCampaignsPage() {
       load();
     } catch (error) {
       toast.error(errorMessage(error, 'Could not update the campaign'));
+    }
+  };
+
+  const loadDetail = async (campaignId, state = '') => {
+    setLoadingDetail(true);
+    try {
+      const [detail, leadsData] = await Promise.all([
+        promoCampaignApi.get(campaignId),
+        promoCampaignApi.leads(campaignId, { state: state || undefined, limit: 100 }),
+      ]);
+      setDetailCampaign(detail);
+      setDetailLeads(leadsData.leads || []);
+    } catch (error) {
+      toast.error(errorMessage(error, 'Could not load campaign leads'));
+    } finally {
+      setLoadingDetail(false);
     }
   };
 
@@ -172,7 +326,9 @@ export default function PromoCampaignsPage() {
       mobileHidden: true,
       render: (row) => (row.assignToAllResellers
         ? 'All active resellers'
-        : `${row.assignedResellerIds?.length || 0} reseller(s)`),
+        : (row.assignedResellerIds?.length
+          ? row.assignedResellerIds.map((r) => r.displayName || r.referralCode).join(', ')
+          : 'No reseller selected')),
     },
     {
       key: 'synced',
@@ -189,10 +345,10 @@ export default function PromoCampaignsPage() {
       key: 'actions',
       header: '',
       render: (row) => (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1">
           <button
             type="button"
-            className="btn btn-ghost text-xs"
+            className="btn btn-ghost btn-sm text-xs"
             onClick={() => handleSync(row._id)}
             disabled={syncingId === row._id}
           >
@@ -201,7 +357,26 @@ export default function PromoCampaignsPage() {
           </button>
           <button
             type="button"
-            className="btn btn-ghost text-xs"
+            className="btn btn-ghost btn-sm text-xs"
+            onClick={() => handleEdit(row._id)}
+          >
+            <Pencil className="h-3 w-3" aria-hidden="true" />
+            Edit
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm text-xs"
+            onClick={() => {
+              setDetailStateFilter('');
+              loadDetail(row._id, '');
+            }}
+          >
+            <Eye className="h-3 w-3" aria-hidden="true" />
+            Leads
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm text-xs"
             onClick={() => handleStatusChange(row, row.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE')}
           >
             {row.status === 'ACTIVE' ? 'Pause' : 'Activate'}
@@ -217,22 +392,88 @@ export default function PromoCampaignsPage() {
       <div className="mx-auto max-w-6xl px-4 py-8 space-y-6">
         <PageHeader
           title="WhatsApp campaigns"
-          subtitle="Assign the lead sheets your resellers send from."
+          subtitle="Connect your Google Apps Script and assign Google Sheets to your resellers."
           actions={(
-            <button type="button" className="btn btn-primary" onClick={() => setShowForm((open) => !open)}>
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              New campaign
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowSettings((open) => !open)}
+              >
+                <Settings2 className="h-4 w-4" aria-hidden="true" />
+                Sheet connection
+                {sheetConfigured && <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" />}
+              </button>
+              <button type="button" className="btn btn-primary" onClick={openNewForm}>
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                New campaign
+              </button>
+            </>
           )}
         />
 
         {!sheetConfigured && (
           <Notice tone="warning">
-            The Google Apps Script bridge is not configured, so campaigns cannot read or stamp a sheet.
-            Deploy <code>tools/promo-sheet/Code.gs</code> as a web app and set
-            <code> PROMO_SHEET_SCRIPT_URL</code> and <code>PROMO_SHEET_SECRET_KEY</code> in the backend
-            environment.
+            Google Apps Script is not connected yet. Deploy <code>tools/promo-sheet/Code.gs</code> as a Web App
+            (Execute as: <strong>Me</strong>, Who has access: <strong>Anyone</strong>) and save its URL &amp; secret key below.
           </Notice>
+        )}
+
+        {showSettings && (
+          <Card>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-semibold">Google Apps Script connection</h2>
+                <p className="text-xs text-ink-muted">
+                  One Apps Script deployment works for all Google Sheets your account can edit.
+                  {sheetSettings?.source === 'panel' && ' Currently saved in panel settings.'}
+                  {sheetSettings?.source === 'env' && ' Currently loaded from backend environment variables.'}
+                </p>
+              </div>
+              <StatusBadge status={sheetConfigured ? 'CONNECTED' : 'NOT CONFIGURED'} />
+            </div>
+
+            <form onSubmit={handleSaveSettings} className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm sm:col-span-2">
+                <span className="text-ink-muted">Apps Script Web App URL</span>
+                <input
+                  className="input mt-1 w-full"
+                  type="url"
+                  placeholder="https://script.google.com/macros/s/.../exec"
+                  value={settingsForm.appsScriptUrl}
+                  onChange={(event) => setSettingsForm({ ...settingsForm, appsScriptUrl: event.target.value })}
+                  required
+                />
+              </label>
+              <label className="block text-sm sm:col-span-2">
+                <span className="text-ink-muted">Secret key (SECRET_KEY in Code.gs)</span>
+                <input
+                  className="input mt-1 w-full"
+                  type="password"
+                  placeholder={sheetSettings?.hasSecretKey ? 'Leave blank to keep existing key' : 'Enter your secret key'}
+                  value={settingsForm.secretKey}
+                  onChange={(event) => setSettingsForm({ ...settingsForm, secretKey: event.target.value })}
+                  autoComplete="off"
+                />
+              </label>
+              <div className="flex flex-wrap gap-2 sm:col-span-2">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleTestSettings}
+                  disabled={testingSettings || savingSettings}
+                >
+                  {testingSettings ? 'Testing…' : 'Test connection'}
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={savingSettings}>
+                  {savingSettings ? 'Saving…' : 'Save connection'}
+                </button>
+                <button type="button" className="btn btn-ghost" onClick={() => setShowSettings(false)}>
+                  Close
+                </button>
+              </div>
+            </form>
+          </Card>
         )}
 
         <Notice tone="info">
@@ -243,7 +484,27 @@ export default function PromoCampaignsPage() {
 
         {showForm && (
           <Card>
-            <form onSubmit={handleCreate} className="grid gap-4 sm:grid-cols-2">
+            <h2 className="mb-4 text-lg font-semibold">
+              {editingId ? 'Edit Google Sheet campaign' : 'Assign a Google Sheet campaign'}
+            </h2>
+            <form onSubmit={handleSaveCampaign} className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm sm:col-span-2">
+                <span className="text-ink-muted">Google Sheet link</span>
+                <div className="mt-1 flex gap-2">
+                  <input
+                    className="input flex-1"
+                    type="url"
+                    placeholder="https://docs.google.com/spreadsheets/d/..."
+                    value={form.sheetUrl}
+                    onChange={(event) => setForm({ ...form, sheetUrl: event.target.value })}
+                    required={!editingId}
+                  />
+                  <button type="button" className="btn btn-secondary" onClick={handleLoadTabs} disabled={loadingTabs}>
+                    <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
+                    {loadingTabs ? 'Reading…' : 'Load tabs'}
+                  </button>
+                </div>
+              </label>
               <label className="block text-sm">
                 <span className="text-ink-muted">Campaign name</span>
                 <input
@@ -260,23 +521,6 @@ export default function PromoCampaignsPage() {
                   value={form.description}
                   onChange={(event) => setForm({ ...form, description: event.target.value })}
                 />
-              </label>
-              <label className="block text-sm sm:col-span-2">
-                <span className="text-ink-muted">Google Sheet link</span>
-                <div className="mt-1 flex gap-2">
-                  <input
-                    className="input flex-1"
-                    type="url"
-                    placeholder="https://docs.google.com/spreadsheets/d/..."
-                    value={form.sheetUrl}
-                    onChange={(event) => setForm({ ...form, sheetUrl: event.target.value })}
-                    required
-                  />
-                  <button type="button" className="btn btn-secondary" onClick={handleLoadTabs} disabled={loadingTabs}>
-                    <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
-                    {loadingTabs ? 'Reading…' : 'Load tabs'}
-                  </button>
-                </div>
               </label>
               <label className="block text-sm">
                 <span className="text-ink-muted">Tab</span>
@@ -355,6 +599,17 @@ export default function PromoCampaignsPage() {
                 />
               </label>
               <label className="block text-sm">
+                <span className="text-ink-muted">Daily limit override (blank = reseller default)</span>
+                <input
+                  className="input mt-1 w-full"
+                  type="number"
+                  min="0"
+                  max="5000"
+                  value={form.dailyShareCapOverride}
+                  onChange={(event) => setForm({ ...form, dailyShareCapOverride: event.target.value })}
+                />
+              </label>
+              <label className="block text-sm">
                 <span className="text-ink-muted">Hold a claimed number for (minutes)</span>
                 <input
                   className="input mt-1 w-full"
@@ -387,39 +642,68 @@ export default function PromoCampaignsPage() {
                   onChange={(event) => setForm({ ...form, maxContactsPerNumber: event.target.value })}
                 />
               </label>
+              <label className="block text-sm">
+                <span className="text-ink-muted">Status</span>
+                <select
+                  className="input mt-1 w-full"
+                  value={form.status}
+                  onChange={(event) => setForm({ ...form, status: event.target.value })}
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="PAUSED">Paused</option>
+                  <option value="DRAFT">Draft</option>
+                  <option value="ARCHIVED">Archived</option>
+                </select>
+              </label>
               <label className="flex items-center gap-2 text-sm sm:col-span-2">
                 <input
                   type="checkbox"
                   checked={form.assignToAllResellers}
                   onChange={(event) => setForm({ ...form, assignToAllResellers: event.target.checked })}
                 />
-                <span>Give this campaign to every active reseller</span>
+                <span>Give this Google Sheet campaign to every active reseller</span>
               </label>
               {!form.assignToAllResellers && (
-                <label className="block text-sm sm:col-span-2">
-                  <span className="text-ink-muted">Assigned resellers</span>
-                  <select
-                    multiple
-                    className="input mt-1 h-32 w-full"
-                    value={form.assignedResellerIds}
-                    onChange={(event) => setForm({
-                      ...form,
-                      assignedResellerIds: [...event.target.selectedOptions].map((option) => option.value),
+                <div className="sm:col-span-2 space-y-2">
+                  <span className="block text-sm text-ink-muted">Assigned resellers (pick one or more)</span>
+                  <div className="grid max-h-44 gap-2 overflow-y-auto rounded-xl border border-line bg-surface-sunken p-3 sm:grid-cols-2">
+                    {resellers.length === 0 ? (
+                      <p className="text-xs text-ink-muted">No active resellers found.</p>
+                    ) : resellers.map((reseller) => {
+                      const checked = form.assignedResellerIds.includes(reseller._id);
+                      return (
+                        <label key={reseller._id} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) => {
+                              const next = event.target.checked
+                                ? [...form.assignedResellerIds, reseller._id]
+                                : form.assignedResellerIds.filter((id) => id !== reseller._id);
+                              setForm({ ...form, assignedResellerIds: next });
+                            }}
+                          />
+                          <span className="truncate">
+                            {reseller.displayName || reseller.login} ({reseller.referralCode})
+                          </span>
+                        </label>
+                      );
                     })}
-                  >
-                    {resellers.map((reseller) => (
-                      <option key={reseller._id} value={reseller._id}>
-                        {reseller.displayName || reseller.login} ({reseller.referralCode})
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  </div>
+                </div>
               )}
               <div className="flex gap-2 sm:col-span-2">
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Creating…' : 'Create and sync'}
+                  {saving ? 'Saving…' : (editingId ? 'Save & sync' : 'Create & sync')}
                 </button>
-                <button type="button" className="btn btn-ghost" onClick={() => setShowForm(false)}>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditingId(null);
+                  }}
+                >
                   Cancel
                 </button>
               </div>
@@ -448,6 +732,79 @@ export default function PromoCampaignsPage() {
             )}
           </div>
         </Card>
+
+        {detailCampaign && (
+          <Card className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-semibold">{detailCampaign.campaign?.name} — Leads &amp; Progress</h2>
+                <p className="text-xs text-ink-muted">
+                  Tab: {detailCampaign.campaign?.tab} · Available: {detailCampaign.byState?.AVAILABLE || 0} ·{' '}
+                  Claimed: {detailCampaign.byState?.CLAIMED || 0} · Sent: {(detailCampaign.byState?.SENT || 0) + (detailCampaign.byState?.EXHAUSTED || 0)} ·{' '}
+                  Opted out: {detailCampaign.byState?.OPTED_OUT || 0}
+                </p>
+              </div>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDetailCampaign(null)}>
+                Close
+              </button>
+            </div>
+
+            {detailCampaign.byReseller?.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {detailCampaign.byReseller.map((entry) => (
+                  <span key={entry.resellerProfileId} className="badge-neutral">
+                    {entry.displayName || entry.referralCode}: {entry.sent} sent
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <label htmlFor="lead-state-filter" className="text-sm text-ink-muted">Filter state</label>
+              <select
+                id="lead-state-filter"
+                className="select w-48"
+                value={detailStateFilter}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setDetailStateFilter(next);
+                  loadDetail(detailCampaign.campaign._id, next);
+                }}
+              >
+                <option value="">All states</option>
+                <option value="AVAILABLE">Available</option>
+                <option value="CLAIMED">Claimed</option>
+                <option value="SENT">Sent</option>
+                <option value="EXHAUSTED">Exhausted</option>
+                <option value="OPTED_OUT">Opted out</option>
+              </select>
+            </div>
+
+            {loadingDetail ? (
+              <LoadingRows rows={2} />
+            ) : (
+              <DataTable
+                columns={[
+                  { key: 'rowNumber', header: 'Row', primary: true, render: (r) => <span className="tnum">#{r.rowNumber}</span> },
+                  { key: 'displayName', header: 'Name', render: (r) => <Value>{r.displayName}</Value> },
+                  { key: 'normalizedPhone', header: 'Phone', render: (r) => <span className="font-mono text-xs">+{r.normalizedPhone}</span> },
+                  { key: 'state', header: 'State', render: (r) => <StatusBadge status={r.state} /> },
+                  {
+                    key: 'sentBy',
+                    header: 'Sent by',
+                    mobileHidden: true,
+                    render: (r) => <Value>{r.sentByProfileId?.displayName || r.sentByProfileId?.referralCode}</Value>,
+                  },
+                  { key: 'sheetStatus', header: 'Sheet status', mobileHidden: true, render: (r) => <Value>{r.sheetStatus}</Value> },
+                ]}
+                rows={detailLeads}
+                rowKey={(r) => r._id}
+                caption="Campaign sheet leads"
+                empty={<p className="text-sm text-ink-muted">No leads match this filter.</p>}
+              />
+            )}
+          </Card>
+        )}
       </div>
     </div>
   );

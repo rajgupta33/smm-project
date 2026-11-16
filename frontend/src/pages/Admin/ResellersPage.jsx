@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Users, Plus, RefreshCw, Link2, Percent } from 'lucide-react';
+import { Users, Plus, RefreshCw, Link2, Percent, FileSpreadsheet } from 'lucide-react';
 import ResponsiveNavbar from '../../components/NavBar';
 import DataTable from '../../components/ui/DataTable';
 import {
   Card, EmptyState, LoadingRows, Money, Notice, PageHeader, StatusBadge, Value,
 } from '../../components/ui/Primitives';
-import { resellerAdminApi } from '../../service/api';
+import { promoCampaignApi, resellerAdminApi } from '../../service/api';
 
 /**
  * Admin screen for creating resellers and setting each one's commission.
@@ -42,6 +43,7 @@ function errorMessage(error, fallback) {
 
 export default function ResellersPage() {
   const [resellers, setResellers] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -49,17 +51,23 @@ export default function ResellersPage() {
   const [form, setForm] = useState(BLANK_FORM);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [assigningReseller, setAssigningReseller] = useState(null);
+  const [updatingCampaignId, setUpdatingCampaignId] = useState(null);
   const [scanning, setScanning] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await resellerAdminApi.list({
-        status: statusFilter || undefined,
-        search: search || undefined,
-        limit: 100,
-      });
-      setResellers(data.resellers || []);
+      const [resellerData, campaignData] = await Promise.all([
+        resellerAdminApi.list({
+          status: statusFilter || undefined,
+          search: search || undefined,
+          limit: 100,
+        }),
+        promoCampaignApi.list({ limit: 100 }).catch(() => ({ campaigns: [] })),
+      ]);
+      setResellers(resellerData.resellers || []);
+      setCampaigns(campaignData.campaigns || []);
     } catch (error) {
       toast.error(errorMessage(error, 'Could not load resellers'));
     } finally {
@@ -155,6 +163,31 @@ export default function ResellersPage() {
     }
   };
 
+  const campaignsForReseller = (resellerId) => campaigns.filter(
+    (c) => c.status === 'ACTIVE'
+      && (c.assignToAllResellers || (c.assignedResellerIds || []).some((r) => (r._id || r) === resellerId))
+  );
+
+  const handleToggleCampaignForReseller = async (campaign, resellerId, shouldInclude) => {
+    setUpdatingCampaignId(campaign._id);
+    try {
+      const currentIds = (campaign.assignedResellerIds || []).map((r) => (typeof r === 'string' ? r : r._id));
+      const nextIds = shouldInclude
+        ? [...new Set([...currentIds, resellerId])]
+        : currentIds.filter((id) => id !== resellerId);
+      await promoCampaignApi.update(campaign._id, {
+        assignToAllResellers: false,
+        assignedResellerIds: nextIds,
+      });
+      toast.success(`Updated sheet assignment for ${campaign.name}`);
+      await load();
+    } catch (error) {
+      toast.error(errorMessage(error, 'Could not update sheet assignment'));
+    } finally {
+      setUpdatingCampaignId(null);
+    }
+  };
+
   const columns = [
     {
       key: 'login',
@@ -213,26 +246,47 @@ export default function ResellersPage() {
       render: (row) => <Value>{row.totals?.referredCustomers || 0}</Value>,
       mobileHidden: true,
     },
+    {
+      key: 'sheets',
+      header: 'Google Sheets',
+      mobileHidden: true,
+      render: (row) => {
+        const active = campaignsForReseller(row._id);
+        return active.length
+          ? <span className="text-xs text-ink">{active.length} active</span>
+          : <span className="text-xs text-ink-faint">None</span>;
+      },
+    },
     { key: 'status', header: 'Status', render: (row) => <StatusBadge status={row.status} /> },
     {
       key: 'actions',
       header: '',
       render: (row) => (
-        <button
-          type="button"
-          className="btn btn-ghost text-xs"
-          onClick={() => setEditing({
-            _id: row._id,
-            login: row.login,
-            commissionPercent: String(row.commissionBps / 100),
-            holdDays: String(row.holdDays),
-            dailyShareCap: String(row.dailyShareCap),
-            status: row.status,
-            marketingEnabled: row.marketingEnabled,
-          })}
-        >
-          Edit
-        </button>
+        <div className="flex flex-wrap gap-1">
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm text-xs"
+            onClick={() => setAssigningReseller(row)}
+          >
+            <FileSpreadsheet className="h-3 w-3" aria-hidden="true" />
+            Sheets
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm text-xs"
+            onClick={() => setEditing({
+              _id: row._id,
+              login: row.login,
+              commissionPercent: String(row.commissionBps / 100),
+              holdDays: String(row.holdDays),
+              dailyShareCap: String(row.dailyShareCap),
+              status: row.status,
+              marketingEnabled: row.marketingEnabled,
+            })}
+          >
+            Edit
+          </button>
+        </div>
       ),
     },
   ];
@@ -449,6 +503,75 @@ export default function ResellersPage() {
                 </button>
               </div>
             </div>
+          </Card>
+        )}
+
+        {assigningReseller && (
+          <Card className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-semibold">
+                  Google Sheets for {assigningReseller.displayName || assigningReseller.login}
+                </h2>
+                <p className="text-xs text-ink-muted">
+                  Toggle existing campaigns for this reseller or attach a new Google Sheet.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link
+                  to={`/adminPromoCampaigns?resellerId=${encodeURIComponent(assigningReseller._id)}`}
+                  className="btn btn-primary btn-sm"
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                  New Google Sheet for this reseller
+                </Link>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAssigningReseller(null)}>
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {campaigns.length === 0 ? (
+              <p className="text-sm text-ink-muted">
+                No Google Sheet campaigns created yet. Click &ldquo;New Google Sheet for this reseller&rdquo; to set one up.
+              </p>
+            ) : (
+              <ul className="divide-y divide-line rounded-xl border border-line">
+                {campaigns.map((campaign) => {
+                  const isAll = Boolean(campaign.assignToAllResellers);
+                  const isExplicit = (campaign.assignedResellerIds || []).some(
+                    (r) => (r._id || r) === assigningReseller._id
+                  );
+                  const assigned = isAll || isExplicit;
+                  return (
+                    <li key={campaign._id} className="flex flex-wrap items-center justify-between gap-3 p-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-ink">{campaign.name}</p>
+                        <p className="text-xs text-ink-muted">
+                          Tab: {campaign.tab} · {campaign.stats?.availableLeads ?? 0} ready ·{' '}
+                          {isAll ? 'Shared with all active resellers' : 'Specific resellers'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={campaign.status} />
+                        {isAll ? (
+                          <span className="text-xs text-ink-muted">Included (All)</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className={`btn btn-sm ${assigned ? 'btn-secondary' : 'btn-primary'}`}
+                            disabled={updatingCampaignId === campaign._id}
+                            onClick={() => handleToggleCampaignForReseller(campaign, assigningReseller._id, !assigned)}
+                          >
+                            {assigned ? 'Remove' : 'Assign'}
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </Card>
         )}
 

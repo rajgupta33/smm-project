@@ -1,24 +1,28 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import {
-  MessageCircle, Send, SkipForward, Ban, RefreshCw, ShieldAlert,
+  MessageCircle, Send, SkipForward, Ban, RefreshCw, ShieldAlert, Smartphone,
 } from 'lucide-react';
 import ResponsiveNavbar from '../../components/NavBar';
 import {
   Card, EmptyState, LoadingRows, Notice, PageHeader,
 } from '../../components/ui/Primitives';
 import { resellerApi } from '../../service/api';
+import {
+  WA_OPEN_MODES,
+  buildWhatsAppTargetUrl,
+  defaultWhatsAppOpenMode,
+  parseWhatsAppLink,
+  saveWhatsAppOpenMode,
+} from '../../service/whatsappLink';
 
 /**
- * WhatsApp sending for resellers, ported from the standalone WA Sender PWA.
+ * WhatsApp sending for resellers, integrating the WA Sender mobile workflow
+ * (`whatsapp-mobile-sender-googel-sheet`) with the panel's atomic lead pool.
  *
- * One number at a time: tap Send, WhatsApp opens with the message already
- * written, and on return the panel asks whether it actually went out. The panel
- * cannot observe WhatsApp, so the confirmation is explicit rather than assumed —
- * guessing wrong would either burn a lead or message someone twice.
- *
- * Which numbers exist, and what they say, is set by the admin. A reseller only
- * ever receives the next one in their queue.
+ * One number at a time: preview the message, pick WhatsApp / WhatsApp Business /
+ * Web link, tap Send, and confirm whether the message actually went out so the
+ * backend marks the admin's Google Sheet row as Sent.
  */
 
 function errorMessage(error, fallback) {
@@ -31,7 +35,7 @@ export default function ResellerMarketingPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
-  // True once the reseller has been sent off to WhatsApp for the current lead.
+  const [openMode, setOpenMode] = useState(defaultWhatsAppOpenMode);
   const openedRef = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -40,7 +44,10 @@ export default function ResellerMarketingPage() {
       const data = await resellerApi.marketing();
       setStatus(data);
       setLead(data.activeLead || null);
-      if (data.activeLead) setAwaitingConfirm(false);
+      if (!data.activeLead) {
+        setAwaitingConfirm(false);
+        openedRef.current = false;
+      }
     } catch (error) {
       toast.error(errorMessage(error, 'Could not load your campaigns'));
     } finally {
@@ -50,7 +57,6 @@ export default function ResellerMarketingPage() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  // Coming back from WhatsApp is the moment to ask whether the message went out.
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible' && openedRef.current) {
@@ -60,6 +66,11 @@ export default function ResellerMarketingPage() {
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
+
+  const handleOpenModeChange = (mode) => {
+    setOpenMode(mode);
+    saveWhatsAppOpenMode(mode);
+  };
 
   const handleClaim = async (campaignId = null) => {
     setBusy(true);
@@ -79,7 +90,13 @@ export default function ResellerMarketingPage() {
   const handleSend = () => {
     if (!lead) return;
     openedRef.current = true;
-    window.open(lead.sendLink, '_blank', 'noopener,noreferrer');
+    setAwaitingConfirm(true);
+    const targetUrl = buildWhatsAppTargetUrl(lead.sendLink, openMode);
+    if (openMode === 'link') {
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      window.location.assign(targetUrl);
+    }
   };
 
   const handleConfirmSent = async () => {
@@ -88,9 +105,9 @@ export default function ResellerMarketingPage() {
     try {
       const result = await resellerApi.markSent(lead.leadId);
       if (result.sheetUpdated) {
-        toast.success('Marked as sent.');
+        toast.success('Marked as sent in the Google Sheet.');
       } else {
-        toast.warning('Marked as sent here. The sheet will be updated automatically shortly.');
+        toast.warning('Marked as sent here. The Google Sheet will sync automatically shortly.');
       }
       setLead(null);
       setAwaitingConfirm(false);
@@ -137,6 +154,13 @@ export default function ResellerMarketingPage() {
     }
   };
 
+  const parsedLead = useMemo(() => (lead ? parseWhatsAppLink(lead.sendLink) : null), [lead]);
+
+  const activeCampaignSummary = useMemo(() => {
+    if (!lead || !status?.campaigns?.length) return null;
+    return status.campaigns.find((c) => c.campaignId === lead.campaignId) || null;
+  }, [lead, status]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-surface-sunken text-ink">
@@ -156,7 +180,7 @@ export default function ResellerMarketingPage() {
       <div className="mx-auto max-w-2xl px-4 py-8 space-y-6">
         <PageHeader
           title="WhatsApp marketing"
-          subtitle="Send the campaign your admin set up, one number at a time."
+          subtitle="Send from the Google Sheet campaigns your admin assigned, one number at a time."
           actions={(
             <button type="button" className="btn btn-ghost" onClick={refresh} disabled={busy}>
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
@@ -173,7 +197,7 @@ export default function ResellerMarketingPage() {
 
         {status?.marketingEnabled && !status?.configured && (
           <Notice tone="warning">
-            The sheet connection is not set up yet, so no numbers can be loaded. Please tell your admin.
+            The Google Sheet connection is not set up yet, so no numbers can be loaded. Please tell your admin.
           </Notice>
         )}
 
@@ -181,12 +205,48 @@ export default function ResellerMarketingPage() {
           <EmptyState
             icon={MessageCircle}
             title="No campaign assigned yet"
-            description="Your admin has not given you a lead list. Once they do, numbers appear here."
+            description="Your admin has not assigned a Google Sheet to you yet. Once they do, numbers appear here."
           />
+        )}
+
+        {status?.marketingEnabled && status?.configured && status?.campaigns?.length > 0 && (
+          <Card className="flex flex-wrap items-center justify-between gap-3 py-3">
+            <label htmlFor="wa-open-mode" className="flex items-center gap-2 text-sm font-medium text-ink">
+              <Smartphone className="h-4 w-4 text-ink-muted" aria-hidden="true" />
+              <span>Open messages with</span>
+            </label>
+            <select
+              id="wa-open-mode"
+              className="select w-full sm:w-64"
+              value={openMode}
+              onChange={(event) => handleOpenModeChange(event.target.value)}
+            >
+              {WA_OPEN_MODES.map((mode) => (
+                <option key={mode.value} value={mode.value}>{mode.label}</option>
+              ))}
+            </select>
+          </Card>
         )}
 
         {lead && (
           <Card className="space-y-4">
+            {activeCampaignSummary && activeCampaignSummary.dailyCap > 0 && (
+              <div className="space-y-1.5">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                    style={{
+                      width: `${Math.min(100, (activeCampaignSummary.dailyUsed / activeCampaignSummary.dailyCap) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <p className="tnum text-center text-xs text-ink-muted">
+                  {activeCampaignSummary.dailyUsed} of {activeCampaignSummary.dailyCap} sent today ·{' '}
+                  {activeCampaignSummary.availableLeads} left in campaign
+                </p>
+              </div>
+            )}
+
             <div>
               <p className="text-xs uppercase tracking-wide text-ink-muted">{lead.campaignName}</p>
               <p className="mt-1 text-2xl font-semibold text-ink">{lead.displayName || 'Unnamed contact'}</p>
@@ -198,22 +258,28 @@ export default function ResellerMarketingPage() {
               )}
             </div>
 
+            <div className="rounded-xl rounded-bl-sm border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-sm text-emerald-950 whitespace-pre-wrap break-words max-h-60 overflow-y-auto dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-100">
+              {parsedLead?.text ? parsedLead.text : (
+                <span className="italic opacity-75">(no pre-filled message text)</span>
+              )}
+            </div>
+
             {!awaitingConfirm ? (
               <button type="button" className="btn btn-primary btn-block" onClick={handleSend}>
                 <Send className="h-4 w-4" aria-hidden="true" />
                 Send message to {lead.displayName || `+${lead.phone}`}
               </button>
             ) : (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Did the message go out?</p>
+              <div className="space-y-2 rounded-xl border border-line bg-surface-sunken p-3">
+                <p className="text-sm font-medium text-ink">Did the message go out in WhatsApp?</p>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" className="btn btn-primary" onClick={handleConfirmSent} disabled={busy}>
-                    Yes, sent
+                    Yes, mark sent
                   </button>
                   <button type="button" className="btn btn-secondary" onClick={handleCouldNotSend} disabled={busy}>
                     No, put it back
                   </button>
-                  <button type="button" className="btn btn-ghost" onClick={handleSend}>
+                  <button type="button" className="btn btn-ghost" onClick={handleSend} disabled={busy}>
                     Open WhatsApp again
                   </button>
                 </div>
@@ -258,35 +324,50 @@ export default function ResellerMarketingPage() {
               Your campaigns today
             </h2>
             <ul className="divide-y divide-line">
-              {status.campaigns.map((campaign) => (
-                <li key={campaign.campaignId} className="flex flex-wrap items-center justify-between gap-3 p-4">
-                  <div className="min-w-0">
-                    <p className="font-medium text-ink">{campaign.name}</p>
-                    {campaign.description && (
-                      <p className="text-xs text-ink-muted">{campaign.description}</p>
+              {status.campaigns.map((campaign) => {
+                const pct = campaign.dailyCap > 0
+                  ? Math.min(100, (campaign.dailyUsed / campaign.dailyCap) * 100)
+                  : 0;
+                return (
+                  <li key={campaign.campaignId} className="space-y-2 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-ink">{campaign.name}</p>
+                        {campaign.description && (
+                          <p className="text-xs text-ink-muted">{campaign.description}</p>
+                        )}
+                        <p className="mt-1 text-xs text-ink-muted">
+                          {campaign.availableLeads} numbers left · {campaign.sentByMe} sent by you
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="tnum text-sm font-semibold">
+                          {campaign.dailyUsed} / {campaign.dailyCap}
+                        </p>
+                        <p className="text-xs text-ink-muted">sent today</p>
+                        {!lead && campaign.dailyRemaining > 0 && campaign.availableLeads > 0 && (
+                          <button
+                            type="button"
+                            className="btn btn-ghost mt-1 text-xs"
+                            onClick={() => handleClaim(campaign.campaignId)}
+                            disabled={busy}
+                          >
+                            Send from this
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {campaign.dailyCap > 0 && (
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
+                        <div
+                          className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
                     )}
-                    <p className="mt-1 text-xs text-ink-muted">
-                      {campaign.availableLeads} numbers left · {campaign.sentByMe} sent by you
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="tnum text-sm font-semibold">
-                      {campaign.dailyUsed} / {campaign.dailyCap}
-                    </p>
-                    <p className="text-xs text-ink-muted">sent today</p>
-                    {!lead && campaign.dailyRemaining > 0 && campaign.availableLeads > 0 && (
-                      <button
-                        type="button"
-                        className="btn btn-ghost mt-1 text-xs"
-                        onClick={() => handleClaim(campaign.campaignId)}
-                        disabled={busy}
-                      >
-                        Send from this
-                      </button>
-                    )}
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           </Card>
         )}

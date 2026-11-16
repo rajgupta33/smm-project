@@ -325,7 +325,7 @@ async function sweepLeads({ now = new Date() } = {}) {
     );
     counts.released = released.modifiedCount || 0;
 
-    if (promoSheetClient.isConfigured()) {
+    if (await promoSheetClient.isConfiguredAsync()) {
         const pending = await PromoLead.find({
             sheetWriteBackError: { $ne: null },
             state: { $in: ['SENT', 'EXHAUSTED'] },
@@ -391,7 +391,7 @@ async function getMarketingStatus(profileId, { now = new Date() } = {}) {
     const active = await getActiveClaim(profile._id, { now });
     return {
         marketingEnabled: profile.marketingEnabled && profile.status === 'ACTIVE',
-        configured: promoSheetClient.isConfigured(),
+        configured: await promoSheetClient.isConfiguredAsync(),
         dailyShareCap: profile.dailyShareCap,
         totals: {
             leadsClaimed: profile.totals?.leadsClaimed || 0,

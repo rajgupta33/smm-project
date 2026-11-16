@@ -74,6 +74,9 @@ router.patch('/resellers/:profileId', resellerAdminController.updateReseller);
 // WhatsApp promo campaigns. The Google Sheet is assigned here and nowhere else.
 router.get('/promoCampaigns', resellerAdminController.listCampaigns);
 router.post('/promoCampaigns', resellerAdminController.createCampaign);
+router.get('/promoCampaigns/settings', resellerAdminController.getSheetSettings);
+router.put('/promoCampaigns/settings', resellerAdminController.updateSheetSettings);
+router.post('/promoCampaigns/settings/test', resellerAdminController.testSheetSettings);
 router.get('/promoCampaigns/sheetTabs', resellerAdminController.listSheetTabs);
 router.get('/promoCampaigns/:campaignId', resellerAdminController.getCampaign);
 router.patch('/promoCampaigns/:campaignId', resellerAdminController.updateCampaign);

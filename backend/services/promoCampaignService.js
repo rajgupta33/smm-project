@@ -149,6 +149,11 @@ async function updateCampaign(campaignId, input, actor) {
     if (!campaign) throw new PromoCampaignError('Campaign not found', 'CAMPAIGN_NOT_FOUND', 404);
 
     const payload = buildWritablePayload(input, { partial: true });
+    const effectiveStartRow = payload.startRow ?? campaign.startRow;
+    const effectiveEndRow = payload.endRow !== undefined ? payload.endRow : campaign.endRow;
+    if (effectiveEndRow !== null && effectiveEndRow < effectiveStartRow) {
+        throw new PromoCampaignError('endRow must not be before startRow', 'INVALID_CAMPAIGN_FIELD');
+    }
     if (input.sheetUrl) {
         const spreadsheetId = promoSheetClient.extractSpreadsheetId(input.sheetUrl);
         if (!spreadsheetId) throw new PromoCampaignError('A valid Google Sheet link is required', 'INVALID_SHEET');
@@ -271,7 +276,7 @@ async function syncCampaign(campaignId, { now = new Date() } = {}) {
 
 /** Syncs every active campaign. Used by the scheduled worker. */
 async function syncActiveCampaigns({ now = new Date() } = {}) {
-    if (!promoSheetClient.isConfigured()) return { skipped: true, reason: 'PROMO_SHEET_NOT_CONFIGURED' };
+    if (!(await promoSheetClient.isConfiguredAsync())) return { skipped: true, reason: 'PROMO_SHEET_NOT_CONFIGURED' };
     const campaigns = await PromoCampaign.find({ status: 'ACTIVE' }).select('_id').lean();
     const counts = { campaigns: campaigns.length, synced: 0, failed: 0 };
     for (const campaign of campaigns) {
