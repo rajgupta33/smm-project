@@ -437,3 +437,55 @@ test('Apps Script diagnostics reject /dev URLs and explain 404 or HTML responses
         (error) => error.code === 'PROMO_SHEET_HTML_RESPONSE'
     );
 });
+
+test('extractPhoneFromLink recovers phone numbers from wa.me and api.whatsapp.com links', () => {
+    const { extractPhoneFromLink } = require('../services/promoCampaignService');
+    assert.equal(extractPhoneFromLink('https://api.whatsapp.com/send?phone=919876543210&text=Hi'), '919876543210');
+    assert.equal(extractPhoneFromLink('https://wa.me/919876543210?text=Hello'), '919876543210');
+    assert.equal(extractPhoneFromLink('not-a-url'), '');
+});
+
+test('syncCampaign falls back to link phone and reports invalidSamples when rows are unusable', async () => {
+    const { syncCampaign } = require('../services/promoCampaignService');
+    const originalCampaignFindById = PromoCampaign.findById;
+    const originalFetchRows = promoSheetClient.fetchRows;
+    const originalBulkWrite = PromoLead.bulkWrite;
+    const originalUpdateMany = PromoLead.updateMany;
+    const originalCountDocuments = PromoLead.countDocuments;
+
+    let writtenOps = [];
+    const fakeCampaign = {
+        _id: '507f1f77bcf86cd799439044',
+        spreadsheetId: 'sheet-1',
+        tab: 'Sheet1',
+        columns: { name: 'A', number: 'B', link: 'C', status: 'D' },
+        startRow: 2,
+        endRow: null,
+        defaultCountryCode: '91',
+        save: async () => fakeCampaign,
+    };
+
+    PromoCampaign.findById = () => ({ select: async () => fakeCampaign });
+    promoSheetClient.fetchRows = async () => [
+        { rowNumber: 1, name: 'Name', number: 'Number', link: 'Link', status: 'Status' },
+        { rowNumber: 2, name: 'Asha', number: '###', link: 'https://wa.me/919876543210?text=Hi', status: '' },
+        { rowNumber: 3, name: 'Bad', number: 'Rahul', link: '', status: '' },
+    ];
+    PromoLead.bulkWrite = async (ops) => { writtenOps = ops; };
+    PromoLead.updateMany = async () => ({});
+    PromoLead.countDocuments = async () => 1;
+
+    try {
+        const result = await syncCampaign('507f1f77bcf86cd799439044');
+        assert.equal(result.imported, 1);
+        assert.equal(writtenOps[0].updateOne.update.$set.normalizedPhone, '919876543210');
+        assert.equal(result.skippedInvalid, 1);
+        assert.deepEqual(result.invalidSamples, [{ rowNumber: 3, number: 'Rahul', link: '' }]);
+    } finally {
+        PromoCampaign.findById = originalCampaignFindById;
+        promoSheetClient.fetchRows = originalFetchRows;
+        PromoLead.bulkWrite = originalBulkWrite;
+        PromoLead.updateMany = originalUpdateMany;
+        PromoLead.countDocuments = originalCountDocuments;
+    }
+});

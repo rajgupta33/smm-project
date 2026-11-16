@@ -61,6 +61,7 @@ export default function PromoCampaignsPage() {
   const [loadingTabs, setLoadingTabs] = useState(false);
   const [saving, setSaving] = useState(false);
   const [syncingId, setSyncingId] = useState(null);
+  const [syncDiagnostic, setSyncDiagnostic] = useState(null);
 
   const [detailCampaign, setDetailCampaign] = useState(null);
   const [detailLeads, setDetailLeads] = useState([]);
@@ -293,14 +294,28 @@ export default function PromoCampaignsPage() {
 
   const handleSync = async (campaignId) => {
     setSyncingId(campaignId);
+    setSyncDiagnostic(null);
     try {
       const result = await promoCampaignApi.sync(campaignId);
-      toast.success(
-        `Synced ${result.imported} rows. ${result.availableLeads} numbers ready`
+      const summary = `Synced ${result.imported} rows. ${result.availableLeads} numbers ready`
         + (result.skippedDuplicates ? `, ${result.skippedDuplicates} duplicates skipped` : '')
         + (result.skippedInvalid ? `, ${result.skippedInvalid} unusable` : '')
-        + '.'
-      );
+        + '.';
+      if (result.skippedInvalid && result.imported === 0) {
+        toast.warning(summary);
+      } else {
+        toast.success(summary);
+      }
+      if (result.skippedInvalid > 0 && result.invalidSamples?.length) {
+        const samples = result.invalidSamples
+          .map((s) => `Row ${s.rowNumber}: "${s.number || s.link || '(empty)'}"`)
+          .join(' · ');
+        setSyncDiagnostic(
+          `${result.skippedInvalid} row(s) could not be read as phone numbers from Number column ${result.numberColumn || 'B'} (${samples}). `
+          + 'If the sheet displays "###" or scientific notation, widen the column or format numbers as Plain Text; '
+          + 'if numbers are in a different column, click Edit on the campaign to fix the column letters.'
+        );
+      }
       load();
       if (detailCampaign?.campaign?._id === campaignId) {
         loadDetail(campaignId, detailStateFilter);
@@ -530,6 +545,10 @@ export default function PromoCampaignsPage() {
           bulk, and unsolicited promotion breaches India&apos;s DPDP Act. The daily cap and the opt-out
           button exist to keep your senders safe — leave them on.
         </Notice>
+
+        {syncDiagnostic && (
+          <Notice tone="warning">{syncDiagnostic}</Notice>
+        )}
 
         {showForm && (
           <Card>

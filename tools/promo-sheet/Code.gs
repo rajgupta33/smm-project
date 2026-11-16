@@ -84,10 +84,16 @@ function rows_(p) {
     if (!c || c > lastCol) return;
     const rng = sh.getRange(1, c, last, 1);
     const disp = rng.getDisplayValues();
-    let rich = null, forms = null;
+    let vals = null, rich = null, forms = null;
+    if (j === 1) { vals = rng.getValues(); }
     if (j === LINK) { rich = rng.getRichTextValues(); forms = rng.getFormulas(); }
     for (let i = 0; i < last; i++) {
       let v = String(disp[i][0] || '').trim();
+      if (j === 1 && typeof vals[i][0] === 'number' && (/^#+$/.test(v) || /e\+/i.test(v))) {
+        // Narrow or scientific-formatted numeric cells display "###" or "9.8E+09";
+        // recover the full digits from the underlying cell value.
+        v = String(Math.trunc(vals[i][0]));
+      }
       if (j === LINK && !/^(https?|whatsapp|intent):/i.test(v)) {
         // Cell shows text but holds a hyperlink (chip or =HYPERLINK formula)
         const url = rich[i][0] && rich[i][0].getLinkUrl();

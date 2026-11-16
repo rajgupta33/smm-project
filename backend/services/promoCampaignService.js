@@ -51,6 +51,24 @@ function normalizePhone(raw, defaultCountryCode = '91') {
     return digits.slice(0, 15);
 }
 
+/**
+ * Extracts a phone number from a WhatsApp URL (`wa.me/91...` or
+ * `api.whatsapp.com/send?phone=...`), matching the WA Sender PWA fallback when
+ * the Number column is blank or formatted awkwardly.
+ */
+function extractPhoneFromLink(link) {
+    try {
+        const parsed = new URL(String(link || '').trim());
+        let phone = parsed.searchParams.get('phone');
+        if (!phone && /(^|\.)wa\.me$/i.test(parsed.hostname)) {
+            phone = parsed.pathname;
+        }
+        return String(phone || '').replace(/\D+/g, '');
+    } catch {
+        return '';
+    }
+}
+
 function assertBounded(value, field, min, max) {
     const numeric = Number(value);
     if (!Number.isSafeInteger(numeric) || numeric < min || numeric > max) {
@@ -196,12 +214,29 @@ async function syncCampaign(campaignId, { now = new Date() } = {}) {
     const operations = [];
     let skippedDuplicates = 0;
     let skippedInvalid = 0;
+    const invalidSamples = [];
 
     for (const row of rows) {
         if (row.rowNumber < startRow || row.rowNumber > endRow) continue;
-        const normalizedPhone = normalizePhone(row.number, campaign.defaultCountryCode);
+        let normalizedPhone = normalizePhone(row.number, campaign.defaultCountryCode);
         if (!normalizedPhone || normalizedPhone.length < 8) {
-            if (row.number) skippedInvalid += 1;
+            const linkDigits = extractPhoneFromLink(row.link);
+            const fromLink = normalizePhone(linkDigits, campaign.defaultCountryCode);
+            if (fromLink && fromLink.length >= 8) {
+                normalizedPhone = fromLink;
+            }
+        }
+        if (!normalizedPhone || normalizedPhone.length < 8) {
+            if (row.number || row.link) {
+                skippedInvalid += 1;
+                if (invalidSamples.length < 3) {
+                    invalidSamples.push({
+                        rowNumber: row.rowNumber,
+                        number: String(row.number || '').slice(0, 40),
+                        link: String(row.link || '').slice(0, 60),
+                    });
+                }
+            }
             continue;
         }
         // The same number twice in one sheet would let two resellers message it.
@@ -264,10 +299,12 @@ async function syncCampaign(campaignId, { now = new Date() } = {}) {
 
     return {
         campaignId: campaign._id,
+        numberColumn: campaign.columns?.number || 'B',
         rowsRead: rows.length,
         imported: operations.length,
         skippedDuplicates,
         skippedInvalid,
+        invalidSamples,
         totalLeads,
         availableLeads,
         sentLeads,
@@ -352,6 +389,7 @@ module.exports = {
     PromoCampaignError,
     campaignFilterForReseller,
     createCampaign,
+    extractPhoneFromLink,
     getCampaignBreakdown,
     listCampaigns,
     normalizePhone,
