@@ -81,6 +81,14 @@ async function refundedMinorFor(order) {
     return row?.total || 0;
 }
 
+function isOrderCompleted(order) {
+    if (order.lifecycleStatus === 'COMPLETED') return true;
+    // Older manual status checks updated `lastStatus` without changing
+    // `lifecycleStatus`, so treat an already-Completed submitted order as done.
+    return order.lifecycleStatus === 'SUBMITTED'
+        && String(order.lastStatus || '').trim().toLowerCase() === 'completed';
+}
+
 function addDays(date, days) {
     return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
@@ -105,7 +113,7 @@ async function reconcileOrder(order, { now = new Date(), profileCache } = {}) {
     if (!existing) {
         const commissionMinor = commissionFor(snapshot.grossSpreadMinor, profile.commissionBps);
         if (commissionMinor <= 0) return null;
-        const completed = order.lifecycleStatus === 'COMPLETED';
+        const completed = isOrderCompleted(order);
         const completedAt = completed ? (order.updatedAt || now) : null;
         try {
             const created = await CommissionLedger.create({
@@ -159,7 +167,7 @@ async function reconcileOrder(order, { now = new Date(), profileCache } = {}) {
         }
     }
 
-    if (existing.status === 'PENDING' && order.lifecycleStatus === 'COMPLETED') {
+    if (existing.status === 'PENDING' && isOrderCompleted(order)) {
         const completedAt = order.updatedAt || now;
         const updated = await CommissionLedger.findOneAndUpdate(
             { _id: existing._id, status: 'PENDING' },

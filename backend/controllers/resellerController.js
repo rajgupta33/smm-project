@@ -1,4 +1,5 @@
 const Order = require('../models/Order');
+const CommissionLedger = require('../models/CommissionLedger');
 const ResellerProfile = require('../models/ResellerProfile');
 const User = require('../models/User');
 const commissionService = require('../services/commissionService');
@@ -48,20 +49,60 @@ class ResellerController {
                 console.error('On-demand commission scan failed:', error.message);
             });
 
-            const [refreshed, commissions, referredCount, recentOrders] = await Promise.all([
+            const referredUsers = await User.find({ referredBy: profile._id }).select('_id').lean();
+            const customerIds = [profile.userId, ...referredUsers.map((row) => row._id)];
+
+            const [refreshed, commissions, rawRecentOrders] = await Promise.all([
                 ResellerProfile.findById(profile._id).lean(),
                 commissionService.listCommissions(profile._id, { limit: 20 }),
-                User.countDocuments({ referredBy: profile._id }),
-                Order.find({ user: profile.userId })
+                Order.find({ user: { $in: customerIds } })
                     .sort({ createdAt: -1 })
-                    .limit(10)
-                    .select('orderId localOrderId service quantity lastStatus lifecycleStatus createdAt pricingSnapshot.sellingTotalMinor')
+                    .limit(15)
+                    .select('orderId localOrderId user service quantity lastStatus lifecycleStatus fundingStatus createdAt pricingSnapshot.sellingTotalMinor pricingSnapshot.grossSpreadMinor')
                     .lean(),
             ]);
 
+            const orderIds = rawRecentOrders.map((order) => order._id);
+            const ledgerRows = orderIds.length
+                ? await CommissionLedger.find({ resellerProfileId: profile._id, orderId: { $in: orderIds } })
+                    .select('orderId status commissionMinor')
+                    .lean()
+                : [];
+            const ledgerByOrderId = new Map(ledgerRows.map((row) => [String(row.orderId), row]));
+            const effectiveProfile = refreshed || profile;
+            const nonEligibleLifecycle = new Set(['PROVIDER_REJECTED', 'CANCELLED', 'RECONCILIATION_REQUIRED']);
+
+            const recentOrders = rawRecentOrders.map((order) => {
+                const entry = ledgerByOrderId.get(String(order._id));
+                let commissionStatus;
+                let commissionMinor = 0;
+                if (entry) {
+                    commissionStatus = entry.status;
+                    commissionMinor = entry.commissionMinor;
+                } else if (nonEligibleLifecycle.has(order.lifecycleStatus) || order.fundingStatus !== 'DEBITED') {
+                    commissionStatus = 'NOT_ELIGIBLE';
+                } else {
+                    const spread = order.pricingSnapshot?.grossSpreadMinor;
+                    const expected = commissionService.commissionFor(spread, effectiveProfile.commissionBps);
+                    commissionStatus = expected > 0 ? 'PENDING_SCAN' : 'ZERO_MARGIN';
+                }
+                return {
+                    orderReference: order.localOrderId || order.orderId,
+                    attribution: String(order.user) === String(profile.userId) ? 'OWN_ORDER' : 'REFERRAL',
+                    service: order.service,
+                    quantity: order.quantity,
+                    lastStatus: order.lastStatus,
+                    lifecycleStatus: order.lifecycleStatus,
+                    sellingTotalMinor: order.pricingSnapshot?.sellingTotalMinor ?? null,
+                    createdAt: order.createdAt,
+                    commissionStatus,
+                    commissionMinor,
+                };
+            });
+
             return res.status(200).json({
-                reseller: publicProfile(refreshed || profile),
-                referredCustomers: referredCount,
+                reseller: publicProfile(effectiveProfile),
+                referredCustomers: referredUsers.length,
                 commissions: commissions.entries,
                 commissionTotal: commissions.total,
                 recentOrders,

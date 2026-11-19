@@ -131,6 +131,59 @@ export default function ResellerDashboardPage() {
   }
 
   const totals = data?.reseller?.totals || {};
+  const recentOrders = data?.recentOrders || [];
+  const hasZeroMarginOrders = recentOrders.some((order) => order.commissionStatus === 'ZERO_MARGIN');
+
+  const orderColumns = [
+    {
+      key: 'orderReference',
+      header: 'Order',
+      primary: true,
+      render: (row) => <span className="font-mono text-xs">{row.orderReference}</span>,
+    },
+    {
+      key: 'attribution',
+      header: 'Source',
+      render: (row) => (row.attribution === 'OWN_ORDER' ? 'Your own order' : 'Referred customer'),
+    },
+    {
+      key: 'service',
+      header: 'Service',
+      mobileHidden: true,
+      render: (row) => <span className="font-mono text-xs">{row.service}</span>,
+    },
+    {
+      key: 'sellingTotalMinor',
+      header: 'Order total',
+      render: (row) => (row.sellingTotalMinor != null ? <Money minor={row.sellingTotalMinor} /> : '—'),
+    },
+    {
+      key: 'lastStatus',
+      header: 'Order status',
+      render: (row) => <StatusBadge status={row.lastStatus || row.lifecycleStatus} />,
+    },
+    {
+      key: 'commission',
+      header: 'Commission',
+      render: (row) => {
+        if (row.commissionStatus === 'ZERO_MARGIN') {
+          return <span className="text-xs text-ink-muted">₹0.00 (0% margin)</span>;
+        }
+        if (row.commissionStatus === 'NOT_ELIGIBLE') {
+          return <span className="text-xs text-ink-muted">Not eligible</span>;
+        }
+        if (row.commissionStatus === 'PENDING_SCAN') {
+          return <span className="text-xs text-ink-muted">Calculating…</span>;
+        }
+        return (
+          <div className="flex items-center gap-2">
+            <Money minor={row.commissionMinor || 0} />
+            <StatusBadge status={row.commissionStatus} />
+          </div>
+        );
+      },
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-surface-sunken text-ink">
@@ -151,6 +204,13 @@ export default function ResellerDashboardPage() {
           <Notice tone="warning">
             Your account is paused, so new orders will not earn commission. Anything already in the
             ledger is safe and will still be paid.
+          </Notice>
+        )}
+
+        {!(data?.commissions?.length) && hasZeroMarginOrders && (
+          <Notice tone="info">
+            Commission is a share of each order&apos;s profit margin (selling price minus provider cost).
+            Your recent order(s) earned ₹0.00 because those services currently have 0% markup configured.
           </Notice>
         )}
 
@@ -208,6 +268,20 @@ export default function ResellerDashboardPage() {
             />
           </div>
         </Card>
+
+        {recentOrders.length > 0 && (
+          <Card padded={false}>
+            <h2 className="border-b border-line p-4 text-lg font-semibold">Recent attributed orders</h2>
+            <div className="p-4">
+              <DataTable
+                columns={orderColumns}
+                rows={recentOrders}
+                rowKey={(row) => row.orderReference}
+                caption="Recent orders placed by you or your referred customers"
+              />
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );

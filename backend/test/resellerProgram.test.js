@@ -492,3 +492,107 @@ test('syncCampaign falls back to link phone and reports invalidSamples when rows
         PromoLead.countDocuments = originalCountDocuments;
     }
 });
+
+test('reconcileOrder moves a SUBMITTED order with lastStatus Completed straight to HELD', async () => {
+    const { reconcileOrder } = require('../services/commissionService');
+    const originalLedgerFindOne = CommissionLedger.findOne;
+    const originalLedgerCreate = CommissionLedger.create;
+    const originalUserFindById = User.findById;
+    const originalProfileFindOne = ResellerProfile.findOne;
+
+    let createdPayload;
+    CommissionLedger.findOne = async () => null;
+    CommissionLedger.create = async (doc) => {
+        createdPayload = doc;
+        return doc;
+    };
+    User.findById = () => ({ select: () => ({ lean: async () => ({ _id: 'u1', referredBy: null }) }) });
+    ResellerProfile.findOne = () => ({
+        select: () => ({ lean: async () => ({ _id: 'rp1', userId: 'u1', commissionBps: 2500, holdDays: 7, status: 'ACTIVE' }) }),
+    });
+
+    try {
+        const res = await reconcileOrder({
+            _id: 'ord1',
+            orderId: 'ord_1',
+            user: 'u1',
+            lifecycleStatus: 'SUBMITTED',
+            lastStatus: 'Completed',
+            pricingSnapshot: { grossSpreadMinor: 1000, sellingTotalMinor: 5000 },
+            updatedAt: new Date('2026-11-18T00:00:00Z'),
+        });
+        assert.equal(res.action, 'ACCRUED');
+        assert.equal(createdPayload.status, 'HELD');
+        assert.equal(createdPayload.commissionMinor, 250);
+    } finally {
+        CommissionLedger.findOne = originalLedgerFindOne;
+        CommissionLedger.create = originalLedgerCreate;
+        User.findById = originalUserFindById;
+        ResellerProfile.findOne = originalProfileFindOne;
+    }
+});
+
+test('resellerController.getDashboard flags zero-margin orders without leaking internal profit', async () => {
+    const resellerController = require('../controllers/resellerController');
+    const commissionService = require('../services/commissionService');
+    const Order = require('../models/Order');
+
+    const originalScan = commissionService.scanCommissionsForReseller;
+    const originalList = commissionService.listCommissions;
+    const originalProfileFindById = ResellerProfile.findById;
+    const originalUserFind = User.find;
+    const originalOrderFind = Order.find;
+    const originalLedgerFind = CommissionLedger.find;
+
+    commissionService.scanCommissionsForReseller = async () => {};
+    commissionService.listCommissions = async () => ({ total: 0, entries: [] });
+    ResellerProfile.findById = () => ({
+        lean: async () => ({ _id: 'rp1', userId: 'u1', referralCode: 'CODE1', commissionBps: 2500, holdDays: 7, status: 'ACTIVE', totals: {} }),
+    });
+    User.find = () => ({ select: () => ({ lean: async () => [] }) });
+    Order.find = () => ({
+        sort: () => ({
+            limit: () => ({
+                select: () => ({
+                    lean: async () => [{
+                        _id: 'o1',
+                        localOrderId: 'ord_abc',
+                        user: 'u1',
+                        service: 'SRV1',
+                        quantity: 100,
+                        lastStatus: 'Completed',
+                        lifecycleStatus: 'COMPLETED',
+                        fundingStatus: 'DEBITED',
+                        createdAt: new Date('2026-11-18T00:00:00Z'),
+                        pricingSnapshot: { sellingTotalMinor: 5000, grossSpreadMinor: 0 },
+                    }],
+                }),
+            }),
+        }),
+    });
+    CommissionLedger.find = () => ({ select: () => ({ lean: async () => [] }) });
+
+    const res = {
+        statusCode: 200,
+        body: null,
+        status(code) { this.statusCode = code; return this; },
+        json(body) { this.body = body; return this; },
+    };
+
+    try {
+        await resellerController.getDashboard({
+            resellerProfile: { _id: 'rp1', userId: 'u1', referralCode: 'CODE1', commissionBps: 2500, holdDays: 7, status: 'ACTIVE', totals: {} },
+        }, res);
+        assert.equal(res.statusCode, 200);
+        assert.equal(res.body.recentOrders.length, 1);
+        assert.equal(res.body.recentOrders[0].commissionStatus, 'ZERO_MARGIN');
+        assert.equal(res.body.recentOrders[0].grossSpreadMinor, undefined);
+    } finally {
+        commissionService.scanCommissionsForReseller = originalScan;
+        commissionService.listCommissions = originalList;
+        ResellerProfile.findById = originalProfileFindById;
+        User.find = originalUserFind;
+        Order.find = originalOrderFind;
+        CommissionLedger.find = originalLedgerFind;
+    }
+});

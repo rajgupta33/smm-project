@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Users, Plus, RefreshCw, Link2, Percent, FileSpreadsheet } from 'lucide-react';
+import { Users, Plus, RefreshCw, Link2, Percent, FileSpreadsheet, Eye } from 'lucide-react';
 import ResponsiveNavbar from '../../components/NavBar';
 import DataTable from '../../components/ui/DataTable';
 import {
@@ -52,6 +52,10 @@ export default function ResellersPage() {
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(null);
   const [assigningReseller, setAssigningReseller] = useState(null);
+  const [detailData, setDetailData] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [customerToLink, setCustomerToLink] = useState('');
+  const [linkingCustomer, setLinkingCustomer] = useState(false);
   const [updatingCampaignId, setUpdatingCampaignId] = useState(null);
   const [scanning, setScanning] = useState(false);
 
@@ -147,10 +151,43 @@ export default function ResellersPage() {
       const counts = await resellerAdminApi.runCommissionScan();
       toast.success(`Commission scan done: ${counts.accrued} new, ${counts.paid} paid out.`);
       load();
+      if (detailData?.reseller?._id) openResellerDetail(detailData.reseller._id);
     } catch (error) {
       toast.error(errorMessage(error, 'Commission scan failed'));
     } finally {
       setScanning(false);
+    }
+  };
+
+  const openResellerDetail = async (profileId) => {
+    setLoadingDetail(true);
+    try {
+      const data = await resellerAdminApi.get(profileId);
+      setDetailData(data);
+    } catch (error) {
+      toast.error(errorMessage(error, 'Could not load reseller details'));
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleLinkCustomer = async (event) => {
+    event.preventDefault();
+    if (!detailData?.reseller?.referralCode || !customerToLink.trim()) return;
+    setLinkingCustomer(true);
+    try {
+      await resellerAdminApi.reassignCustomer({
+        customerUserId: customerToLink.trim(),
+        referralCode: detailData.reseller.referralCode,
+      });
+      toast.success(`Linked ${customerToLink.trim()} to ${detailData.reseller.referralCode}`);
+      setCustomerToLink('');
+      await openResellerDetail(detailData.reseller._id);
+      load();
+    } catch (error) {
+      toast.error(errorMessage(error, 'Could not link customer'));
+    } finally {
+      setLinkingCustomer(false);
     }
   };
 
@@ -263,6 +300,14 @@ export default function ResellersPage() {
       header: '',
       render: (row) => (
         <div className="flex flex-wrap gap-1">
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm text-xs"
+            onClick={() => openResellerDetail(row._id)}
+          >
+            <Eye className="h-3 w-3" aria-hidden="true" />
+            Details
+          </button>
           <button
             type="button"
             className="btn btn-ghost btn-sm text-xs"
@@ -571,6 +616,84 @@ export default function ResellersPage() {
                   );
                 })}
               </ul>
+            )}
+          </Card>
+        )}
+
+        {(loadingDetail || detailData) && (
+          <Card className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-semibold">
+                  {detailData?.reseller?.displayName || detailData?.reseller?.login || 'Reseller details'}
+                </h2>
+                {detailData?.reseller && (
+                  <p className="text-xs text-ink-muted">
+                    Code: <code>{detailData.reseller.referralCode}</code> ·{' '}
+                    Rate: {(detailData.reseller.commissionBps / 100).toFixed(2)}% of order profit ·{' '}
+                    Hold: {detailData.reseller.holdDays} day(s)
+                  </p>
+                )}
+              </div>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDetailData(null)}>
+                Close
+              </button>
+            </div>
+
+            {loadingDetail ? (
+              <LoadingRows rows={2} />
+            ) : detailData && (
+              <>
+                <form onSubmit={handleLinkCustomer} className="flex flex-wrap items-end gap-2 rounded-xl border border-line bg-surface-sunken p-3">
+                  <label className="flex-1 min-w-[12rem] text-sm">
+                    <span className="text-ink-muted">Link an existing customer login ID to this reseller</span>
+                    <input
+                      className="input mt-1 w-full"
+                      placeholder="Customer userId"
+                      value={customerToLink}
+                      onChange={(event) => setCustomerToLink(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <button type="submit" className="btn btn-primary" disabled={linkingCustomer}>
+                    {linkingCustomer ? 'Linking…' : 'Link customer'}
+                  </button>
+                </form>
+
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-ink">
+                    Referred customers ({detailData.referredCustomers?.length || 0})
+                  </h3>
+                  {detailData.referredCustomers?.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {detailData.referredCustomers.map((c) => (
+                        <span key={c._id} className="badge-neutral font-mono text-xs">{c.userId}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-ink-muted">No referred customers linked yet.</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-ink">
+                    Commission ledger ({detailData.commissionTotal || 0})
+                  </h3>
+                  <DataTable
+                    columns={[
+                      { key: 'orderReference', header: 'Order', primary: true, render: (r) => <span className="font-mono text-xs">{r.orderReference}</span> },
+                      { key: 'attribution', header: 'Source', render: (r) => r.attribution },
+                      { key: 'orderProfitMinor', header: 'Profit', render: (r) => <Money minor={r.orderProfitMinor} /> },
+                      { key: 'commissionMinor', header: 'Commission', render: (r) => <Money minor={r.commissionMinor} /> },
+                      { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
+                    ]}
+                    rows={detailData.commissions || []}
+                    rowKey={(r) => r._id}
+                    caption="Reseller commissions"
+                    empty={<p className="text-xs text-ink-muted">No commission entries yet. Commissions accrue only when orders have &gt;0% profit margin.</p>}
+                  />
+                </div>
+              </>
             )}
           </Card>
         )}

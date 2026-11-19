@@ -38,6 +38,7 @@ const {
     resolveOrderPricing,
     toCustomerQuote,
 } = require('../services/orderPricingResolver');
+const { isTerminalOrderStatus, pollOrderStatus } = require('../services/orderStatusService');
 const { getRuntimeConfig } = require('../config/runtimeConfig');
 
 function assertMatchingOrderReplay(existingOrder, validatedRequest) {
@@ -595,17 +596,31 @@ class UserController {
                 adapter = getProviderAdapterForProvider(provider);
             }
             const providerStatus = await adapter.getOrderStatus(providerOrderId);
+            const rawStatus = providerStatus.status || ownedOrder.lastStatus;
+            const normalized = String(rawStatus || '').trim().toLowerCase().replaceAll('_', ' ');
 
-            const updatedOrder = await Order.findOneAndUpdate(
-                { orderId: ownedOrder.orderId, user: user._id },
-                {
-                    $set: {
-                        lastStatus: providerStatus.status || ownedOrder.lastStatus,
-                        start_count: providerStatus.start_count
-                    }
-                },
-                { new: true }
-            );
+            let updatedOrder;
+            if (ownedOrder.lifecycleStatus === 'SUBMITTED' && ownedOrder.providerOrderId
+                && ['partial', 'canceled', 'cancelled'].includes(normalized)) {
+                const polled = await pollOrderStatus(ownedOrder._id);
+                updatedOrder = polled.order;
+            } else {
+                const setFields = {
+                    lastStatus: rawStatus,
+                    start_count: providerStatus.start_count,
+                };
+                if (ownedOrder.lifecycleStatus === 'SUBMITTED' && normalized === 'completed') {
+                    setFields.lifecycleStatus = 'COMPLETED';
+                    setFields.nextOrderStatusCheckAt = null;
+                } else if (ownedOrder.lifecycleStatus === 'SUBMITTED' && isTerminalOrderStatus(rawStatus)) {
+                    setFields.nextOrderStatusCheckAt = null;
+                }
+                updatedOrder = await Order.findOneAndUpdate(
+                    { orderId: ownedOrder.orderId, user: user._id },
+                    { $set: setFields },
+                    { new: true }
+                );
+            }
 
             providerStatus.charge = updatedOrder
                 ? (updatedOrder.pricingSnapshot?.sellingTotalMinor
